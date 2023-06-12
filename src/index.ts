@@ -1,6 +1,8 @@
 import { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
+import type { InputOption } from 'rollup';
 import { promises as fs, existsSync } from 'fs';
+import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap } from "vite-plugin-single-spa";
 
 /*
 NOTE:
@@ -17,43 +19,6 @@ vite-plugin-import-maps was under the MIT license at the time this project borro
 */
 
 /**
- * Defines how import maps look like.
- */
-export type ImportMap = {
-    imports?: Record<string, string>;
-    scope?: Record<string, string>;
-};
-
-/**
- * Defines the plugin options for Vite projects that are single-spa micro-frontentds.
- */
-export type SingleSpaMifePluginOptions = {
-    type?: 'mife';
-    serverPort?: number;
-    deployedBase?: string;
-    spaEntryPoint?: string;
-};
-
-/**
- * Defines the plugin options for Vite projects that are single-spa root projects (root configs).
- */
-export type SingleSpaRootPluginOptions = {
-    type: 'root';
-    importMaps?: {
-        type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
-        dev?: string;
-        build?: string;
-    };
-    includeImo?: boolean;
-    imoVersion?: string;
-};
-
-/**
- * Defines the type for the plugin options object.
- */
-export type SingleSpaPluginOptions = SingleSpaRootPluginOptions | SingleSpaMifePluginOptions;
-
-/**
  * Determines if the provided configuration options object is for a root project or not.
  * @param config Plugin configuration options.
  * @returns True if the options are for a root project; false otherwise.
@@ -62,11 +27,6 @@ function isRootConfig(config: SingleSpaPluginOptions): config is SingleSpaRootPl
     return config.type === 'root';
 }
 
-/**
- * Vite plugin factory function that creates a plugin that configures Vite projects as single-spa projects.
- * @param config Plugin configuration object.
- * @returns Vite plugin.
- */
 export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin {
     console.debug('Config passed to plugin: %o', config);
     let configFn: (viteOpts: ConfigEnv) => UserConfig | Promise<UserConfig> = mifeConfig;
@@ -164,10 +124,10 @@ export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin {
         }
         const assetFileNames = 'assets/[name][extname]';
         const entryFileNames = '[name].js';
-        const input = {};
+        const input: InputOption = {};
         let preserveEntrySignatures: false | 'strict' | 'allow-extension' | 'exports-only';
         if (viteOpts.command === 'build') {
-            input['spa'] = (config as SingleSpaMifePluginOptions).spaEntryPoint ?? 'src/spa.ts';
+            input['spa'] = (config as SingleSpaMifePluginOptions)?.spaEntryPoint ?? 'src/spa.ts';
             preserveEntrySignatures = 'exports-only';
             if ((config as SingleSpaMifePluginOptions).deployedBase) {
                 cfg.base = (config as SingleSpaMifePluginOptions).deployedBase;
