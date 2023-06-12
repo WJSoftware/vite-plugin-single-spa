@@ -2,6 +2,7 @@
   "name": "vite-plugin-single-spa",
   "version": "0.0.1",
   "description": "Vite plugin to convert Vite-based projects to single-spa root or micro-frontend applications.",
+  "type": "module",
   "main": "index.js",
   "types": "vite-plugin-single-spa.d.ts",
   "scripts": {
