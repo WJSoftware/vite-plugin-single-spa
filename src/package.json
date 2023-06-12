@@ -1,0 +1,36 @@
+{
+  "name": "vite-plugin-single-spa",
+  "version": "0.0.1",
+  "description": "Vite plugin to convert Vite-based projects to single-spa root or micro-frontend applications.",
+  "main": "index.js",
+  "scripts": {
+    "build-test": "./node-modules/typescript/bin/tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WJSoftware/vite-plugin-single-spa.git"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "single-spa",
+    "mife",
+    "mfe",
+    "micro-frontend",
+    "root-config"
+  ],
+  "author": "José Pablo Ramírez Vargas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/WJSoftware/vite-plugin-single-spa/issues"
+  },
+  "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
+  "devDependencies": {
+    "@types/node": "^20.1.0",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "vite": "^4.3.5"
+  }
+}
