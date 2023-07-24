@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-single-spa",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Vite plugin to convert Vite-based projects to single-spa root or micro-frontend applications.",
   "type": "module",
   "main": "index.js",
@@ -28,7 +28,7 @@
     "url": "https://github.com/WJSoftware/vite-plugin-single-spa/issues"
   },
   "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
-  "dependencies": {
-    "vite": "^4.3.5"
+  "devDependencies": {
+    "vite": "^4.4.6"
   }
 }

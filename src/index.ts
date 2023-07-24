@@ -1,8 +1,8 @@
-import { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
+import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption } from 'rollup';
-import { promises as fs, existsSync } from 'fs';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap } from "vite-plugin-single-spa";
+import { promises as fs, existsSync } from 'fs';
 
 /*
 NOTE:
@@ -110,18 +110,12 @@ export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin {
         if (!config) {
             return cfg;
         }
-        if ((config as SingleSpaMifePluginOptions).serverPort) {
-            cfg.server = {
-                port: (config as SingleSpaMifePluginOptions).serverPort
-            };
-            cfg.preview = {
-                port: (config as SingleSpaMifePluginOptions).serverPort
-            };
-            if (viteOpts.command === 'serve') {
-                // Development server.
-                cfg.base = `http://localhost:${(config as SingleSpaMifePluginOptions).serverPort}`;
-            }
-        }
+        cfg.server = {
+            port: (config as SingleSpaMifePluginOptions).serverPort
+        };
+        cfg.preview = {
+            port: (config as SingleSpaMifePluginOptions).serverPort
+        };
         const assetFileNames = 'assets/[name][extname]';
         const entryFileNames = '[name].js';
         const input: InputOption = {};
@@ -129,9 +123,7 @@ export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin {
         if (viteOpts.command === 'build') {
             input['spa'] = (config as SingleSpaMifePluginOptions)?.spaEntryPoint ?? 'src/spa.ts';
             preserveEntrySignatures = 'exports-only';
-            if ((config as SingleSpaMifePluginOptions).deployedBase) {
-                cfg.base = (config as SingleSpaMifePluginOptions).deployedBase;
-            }
+            cfg.base = (config as SingleSpaMifePluginOptions).deployedBase ?? `http://localhost:${(config as SingleSpaMifePluginOptions).serverPort}`;
         }
         else {
             input['index'] = 'index.html';
@@ -172,13 +164,17 @@ export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin {
                 injectTo: 'head-prepend',
             });
         }
-        if (!(cfg.includeImo === false) && importMap) {
-            const imoVersion = cfg.imoVersion ?? 'latest'
+        if (!(cfg.imo === false) && importMap) {
+            let imoVersion = 'latest';
+            if (typeof cfg.imo === 'string') {
+                imoVersion = cfg.imo;
+            }
+            const imoUrl = typeof cfg.imo === 'function' ? cfg.imo() : `https://cdn.jsdelivr.net/npm/import-map-overrides@${imoVersion}/dist/import-map-overrides.js`;
             tags.push({
                 tag: 'script',
                 attrs: {
                     type: 'text/javascript',
-                    src: `https://cdn.jsdelivr.net/npm/import-map-overrides@${imoVersion}/dist/import-map-overrides.js`
+                    src: imoUrl
                 },
                 injectTo: 'head-prepend'
             });
@@ -193,6 +189,9 @@ export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin {
         name: 'vite-plugin-single-spa',
         async config(_cfg, opts) {
             return await configFn(opts);
+        },
+        configResolved(cfg) {
+            console.log('Configuration resolved.  Base:  %s', cfg.base);
         },
         transformIndexHtml: {
             order: 'post',
