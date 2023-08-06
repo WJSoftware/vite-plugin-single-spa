@@ -1,12 +1,18 @@
-import type { Plugin } from 'vite';
+declare module "vite-plugin-single-spa" {
+    import type { Plugin } from 'vite';
+    /**
+     * Vite plugin factory function that creates a plugin that configures Vite projects as single-spa projects.
+     * @param config Plugin configuration object.
+     * @returns Vite plugin.
+     */
+    export default function (config?: SingleSpaPluginOptions): Plugin;
 
-declare module 'vite-plugin-single-spa' {
     /**
      * Defines how import maps look like.
      */
     export type ImportMap = {
         imports?: Record<string, string>;
-        scope?: Record<string, string>;
+        scopes?: Record<string, string>;
     };
 
     /**
@@ -32,6 +38,25 @@ declare module 'vite-plugin-single-spa' {
     };
 
     /**
+     * Defines the posssible options for import maps in root projects.
+     */
+    export type ImportMapsOption = {
+        /**
+         * Type of importmap.  The valid values are 'importmap', 'overridable-importmap', 'systemjs-importmap' and 
+         * 'importmap-shim'.
+         */
+        type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
+        /**
+         * File name of the import map to be used while developing.
+         */
+        dev?: string;
+        /**
+         * File name of the import map to be used while building.
+         */
+        build?: string;
+    };
+
+    /**
      * Defines the plugin options for Vite projects that are single-spa root projects (root configs).
      */
     export type SingleSpaRootPluginOptions = {
@@ -42,21 +67,7 @@ declare module 'vite-plugin-single-spa' {
         /**
          * Importmap options.
          */
-        importMaps?: {
-            /**
-             * Type of importmap.  The valid values are 'importmap', 'overridable-importmap', 'systemjs-importmap' and 
-             * 'importmap-shim'.
-             */
-            type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
-            /**
-             * File name of the import map to be used while developing.
-             */
-            dev?: string;
-            /**
-             * File name of the import map to be used while building.
-             */
-            build?: string;
-        };
+        importMaps?: ImportMapsOption;
         /**
          * Controls the inclusion of the import-map-overrides package.  If set to true, or not specified at all, 
          * import-map-overrides will be included using the package's latest version.  In order to include a specific 
@@ -72,19 +83,4 @@ declare module 'vite-plugin-single-spa' {
      * Defines the type for the plugin options object.
      */
     export type SingleSpaPluginOptions = SingleSpaRootPluginOptions | SingleSpaMifePluginOptions;
-
-
-    /**
-     * Vite plugin factory function that creates a plugin that configures Vite projects as single-spa projects.
-     * @param config Plugin configuration object.
-     * @returns Vite plugin.
-     */
-    export default function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin;
-
-    /**
-     * Vite plugin factory function that creates a plugin that configures Vite projects as single-spa projects.
-     * @param config Plugin configuration object.
-     * @returns Vite plugin.
-     */
-    export function vitePluginSingleSpa(config?: SingleSpaPluginOptions): Plugin;
 }

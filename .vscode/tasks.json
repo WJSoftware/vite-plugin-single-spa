@@ -1,0 +1,26 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"command": [
+				"./build-npm.ps1"
+			],
+			"group": "build",
+			"problemMatcher": [],
+			"label": "Build",
+			"detail": "Transpiles the project into the /out folder."
+		},
+		{
+			"type": "npm",
+			"script": "test",
+			"group": {
+				"kind": "test",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "npm: test",
+			"detail": "Run unit tests"
+		}
+	]
+}
