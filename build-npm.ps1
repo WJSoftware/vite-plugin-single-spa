@@ -37,7 +37,19 @@ param (
     [switch] $Publish
 )
 begin {
+    function Invoke-Call {
+        param (
+            [scriptblock]$ScriptBlock,
+            [string]$ErrorAction = "Stop"
+        )
+        & @ScriptBlock
+        if (($LASTEXITCODE -ne 0) -and $ErrorAction -eq "Stop") {
+            exit $LASTEXITCODE
+        }
+    }
+
     $ErrorActionPreference = 'Stop'
+    Invoke-Call { npm run test }
     [string] $path = Resolve-Path .\src\package.json
     if ($VerUpgrade -ne '') {
         if ($PSCmdlet.ShouldProcess($path, "Package version increment: $VerUpgrade")) {
