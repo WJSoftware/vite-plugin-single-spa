@@ -52,7 +52,7 @@ describe('vite-plugin-single-spa', () => {
             expect(config.preview!.port).to.equal(options.serverPort);
         };
         for (let cmd of viteCommands) {
-            it(`Should set the server and preview ports equal to the given port number: ${cmd}`, () => portTest(cmd));
+            it(`Should set the server and preview ports equal to the given port number on ${cmd}.`, () => portTest(cmd));
         }
         const inputTest = async (inputProp: string, viteCmd: ConfigEnv['command']) => {
             // Arrange.
@@ -125,7 +125,7 @@ describe('vite-plugin-single-spa', () => {
             }
         ];
         for (let tc of baseTestData) {
-            it(`Should set Vite's base property to "${tc.expectedBase}" when deployedBase is "${tc.config.deployedBase}".`, () => baseTest(tc.config, tc.expectedBase));
+            it(`Should set Vite's base property to "${tc.expectedBase}" when deployedBase is "${tc.config.deployedBase}" on build.`, () => baseTest(tc.config, tc.expectedBase));
         }
     });
     describe('Root Configuration', () => {
@@ -421,6 +421,258 @@ describe('vite-plugin-single-spa', () => {
         };
         for (let cmd of viteCommands) {
             it(`Should set the import map type in the injected script tag to the default type "overridable-importmap" on ${cmd} when no type is specified.`, () => defaultImportMapTypeTest(cmd));
+        }
+        const postProcessTest = async (viteCmd: ConfigEnv['command']) => {
+            const fileExists = (_x: string) => false;
+            const readFile = (_x: string, _opts: any) => {
+                throw new Error('Not implemented');
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root' };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+
+            // Act.
+            const order = (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).order;
+
+            // Assert.
+            expect(order).to.equal('post');
+        };
+        for (let cmd of viteCommands) {
+            it(`Should run HTML transformation as a post-processing handler on ${cmd}.`, () => postProcessTest(cmd));
+        }
+        const imoOnImportMapTest = async (viteCmd: ConfigEnv['command']) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => Promise.resolve(JSON.stringify(importMap));
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root' };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                expect(xForm.tags).to.have.lengthOf(2);
+                const secondTag = xForm.tags[1];
+                expect(secondTag).to.not.equal(undefined);
+                expect(secondTag.tag).to.equal('script');
+                expect(secondTag.attrs).to.not.equal(undefined);
+                expect(secondTag.attrs!.type).to.equal('text/javascript');
+                expect(secondTag.attrs!.src).to.contain('import-map-overrides@latest');
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        }
+        for (let cmd of viteCommands) {
+            it(`Should include a script tag for "import-map-overrides" if there are import maps and the "imo" configuration property is not specified on ${cmd}.`, () => imoOnImportMapTest(cmd));
+        }
+        const imoVersionTest = async (viteCmd: ConfigEnv['command']) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => Promise.resolve(JSON.stringify(importMap));
+            const imoVersion = '2.4.2'
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imo: imoVersion };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                expect(xForm.tags).to.have.lengthOf(2);
+                const secondTag = xForm.tags[1];
+                expect(secondTag).to.not.equal(undefined);
+                expect(secondTag.tag).to.equal('script');
+                expect(secondTag.attrs).to.not.equal(undefined);
+                expect(secondTag.attrs!.type).to.equal('text/javascript');
+                expect(secondTag.attrs!.src).to.contain(`import-map-overrides@${imoVersion}`);
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        }
+        for (let cmd of viteCommands) {
+            it(`Should include a script tag for "import-map-overrides" using the version specified in the "imo" configuration property on ${cmd}.`, () => imoVersionTest(cmd));
+        }
+        const imoFunctionTest = async (viteCmd: ConfigEnv['command']) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => Promise.resolve(JSON.stringify(importMap));
+            const imoUrl = 'https://cdn.example.com/import-map-overrides@3.0.1';
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imo: () => imoUrl };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                expect(xForm.tags).to.have.lengthOf(2);
+                const secondTag = xForm.tags[1];
+                expect(secondTag).to.not.equal(undefined);
+                expect(secondTag.tag).to.equal('script');
+                expect(secondTag.attrs).to.not.equal(undefined);
+                expect(secondTag.attrs!.type).to.equal('text/javascript');
+                expect(secondTag.attrs!.src).to.equal(imoUrl);
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        }
+        for (let cmd of viteCommands) {
+            it(`Should include a script tag for "import-map-overrides" using the the URL returned by the function in the "imo" configuration property on ${cmd}.`, () => imoFunctionTest(cmd));
+        }
+        const imoBooleanTest = async (viteCmd: ConfigEnv['command'], imoValue: boolean) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => Promise.resolve(JSON.stringify(importMap));
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imo: imoValue };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                expect(xForm.tags).to.have.lengthOf(imoValue ? 2 : 1);
+                if (imoValue) {
+                    const secondTag = xForm.tags[1];
+                    expect(secondTag).to.not.equal(undefined);
+                    expect(secondTag.tag).to.equal('script');
+                    expect(secondTag.attrs).to.not.equal(undefined);
+                    expect(secondTag.attrs!.type).to.equal('text/javascript');
+                    expect(secondTag.attrs!.src).to.contain(`import-map-overrides@latest`);
+                }
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        }
+        const imoBooleanTestData = [
+            {
+                includesOrNot: 'not ',
+                imoValue: false
+            },
+            {
+                includesOrNot: '',
+                imoValue: true
+            }
+        ];
+        for (let tc of imoBooleanTestData) {
+            for (let cmd of viteCommands) {
+                it(`Should ${tc.includesOrNot}include the "import-map-overrides" tag if the "imo" configuration property is set to "${tc.imoValue}" on ${cmd}.`, () => imoBooleanTest(cmd, tc.imoValue));
+            }
+        }
+        const noImoOnNoImportMapTest = async (viteCmd: ConfigEnv['command'], imoValue: SingleSpaRootPluginOptions['imo']) => {
+            const fileExists = (_x: string) => false;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                throw new Error('Not implemented.');
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imo: imoValue };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                expect(xForm.tags).to.have.lengthOf(0);
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        const noImoOnNoImportMapTestData: { imoValue: SingleSpaRootPluginOptions['imo'], valueDesc: string }[] = [
+            {
+                imoValue: true,
+                valueDesc: 'true'
+            },
+            {
+                imoValue: '2.4.2',
+                valueDesc: 'a version number'
+            },
+            {
+                imoValue: () => 'http://cdn.example.com/import-map-overrides@3.0.1',
+                valueDesc: 'a function'
+            }
+        ];
+        for (let tc of noImoOnNoImportMapTestData) {
+            for (let cmd of viteCommands) {
+                it(`Should not include "import-map-overrides" if no import map is available on ${cmd}, even if "imo" is set to ${tc.valueDesc} on ${cmd}.`, () => noImoOnNoImportMapTest(cmd, tc.imoValue));
+            }
         }
     });
 });

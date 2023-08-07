@@ -161,7 +161,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     injectTo: 'head-prepend',
                 });
             }
-            if (!(cfg.imo === false) && importMap) {
+            if (cfg.imo !== false && importMap) {
                 let imoVersion = 'latest';
                 if (typeof cfg.imo === 'string') {
                     imoVersion = cfg.imo;
