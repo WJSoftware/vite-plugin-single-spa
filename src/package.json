@@ -28,7 +28,7 @@
     "url": "https://github.com/WJSoftware/vite-plugin-single-spa/issues"
   },
   "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
-  "devDependencies": {
+  "peerDependencies": {
     "vite": "^4.4.6"
   }
 }
