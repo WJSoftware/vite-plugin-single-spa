@@ -2,7 +2,7 @@ import { promises as fs, existsSync } from 'fs';
 import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption } from 'rollup';
-import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap } from "vite-plugin-single-spa";
+import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption } from "vite-plugin-single-spa";
 
 /*
 NOTE:
@@ -174,6 +174,31 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                         src: imoUrl
                     },
                     injectTo: 'head-prepend'
+                });
+            }
+            let imoUiCfg: ImoUiOption = {
+                buttonPos: 'bottom-right',
+                localStorageKey: 'imo-ui',
+                variant: 'full'
+            };
+            if (typeof cfg.imoUi === 'object') {
+                imoUiCfg = {
+                    ...imoUiCfg,
+                    ...cfg.imoUi
+                };
+            }
+            else if (cfg.imoUi !== undefined) {
+                imoUiCfg.variant = cfg.imoUi;
+            }
+            if (imoUiCfg.variant && importMap) {
+                imoUiCfg.variant = imoUiCfg.variant === true ? 'full' : imoUiCfg.variant;
+                tags.push({
+                    tag: `import-map-overrides-${imoUiCfg.variant}`,
+                    attrs: {
+                        'trigger-position': imoUiCfg.buttonPos,
+                        'show-when-local-storage': imoUiCfg.localStorageKey
+                    },
+                    injectTo: 'body'
                 });
             }
             return {
