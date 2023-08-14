@@ -192,12 +192,16 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             }
             if (imoUiCfg.variant && importMap) {
                 imoUiCfg.variant = imoUiCfg.variant === true ? 'full' : imoUiCfg.variant;
-                tags.push({
-                    tag: `import-map-overrides-${imoUiCfg.variant}`,
-                    attrs: {
+                let attrs: Record<string, string | boolean | undefined> | undefined = undefined;
+                if (imoUiCfg.variant === 'full') {
+                    attrs = {
                         'trigger-position': imoUiCfg.buttonPos,
                         'show-when-local-storage': imoUiCfg.localStorageKey
-                    },
+                    };
+                }
+                tags.push({
+                    tag: `import-map-overrides-${imoUiCfg.variant}`,
+                    attrs,
                     injectTo: 'body'
                 });
             }
