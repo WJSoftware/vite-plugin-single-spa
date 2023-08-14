@@ -3,8 +3,8 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { pluginFactory } from '../src/plugin-factory.js';
 
-import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption } from "vite-plugin-single-spa";
-import type { ConfigEnv, IndexHtmlTransformHook, UserConfig } from 'vite';
+import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption } from "vite-plugin-single-spa";
+import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
 import type { PreserveEntrySignaturesOption, OutputOptions } from 'rollup';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
@@ -18,6 +18,26 @@ const viteModes: ConfigEnv['mode'][] = [
     'development',
     'production'
 ];
+
+function subSetOf(subset: Record<any, any>, superset: Record<any, any> | undefined) {
+    if (!superset) {
+        return false;
+    }
+    for (let [key, value] of Object.entries(subset)) {
+        if (value !== superset[key]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function searchTag(tags: HtmlTagDescriptor[], tag: string, attrs?: HtmlTagDescriptor['attrs'], predicate?: (t: HtmlTagDescriptor) => boolean) {
+    return tags.find(t => t.tag.indexOf(tag) === 0 && (!attrs || subSetOf(attrs, t.attrs)) && (predicate ?? (() => true))(t));
+}
+
+function searchForScriptTag(tags: HtmlTagDescriptor[], predicate?: (t: HtmlTagDescriptor) => boolean, attrs?: HtmlTagDescriptor['attrs']) {
+    return searchTag(tags, 'script', { type: 'text/javascript', ...(attrs ?? {}) }, predicate);
+}
 
 // Plug-in for all tests that don't require mocking.
 const vitePluginSingleSpa = pluginFactory();
@@ -409,6 +429,7 @@ describe('vite-plugin-single-spa', () => {
             expect(xForm).to.not.equal(null);
             expect(xForm).to.not.equal(undefined);
             if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imTag = searchTag(xForm.tags, 'script', { type: 'overridable-importmap' })
                 const firstTag = xForm.tags[0];
                 expect(firstTag).to.not.equal(undefined);
                 expect(firstTag.tag).to.equal('script');
@@ -467,13 +488,8 @@ describe('vite-plugin-single-spa', () => {
             expect(xForm).to.not.equal(null);
             expect(xForm).to.not.equal(undefined);
             if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-                expect(xForm.tags).to.have.lengthOf(2);
-                const secondTag = xForm.tags[1];
-                expect(secondTag).to.not.equal(undefined);
-                expect(secondTag.tag).to.equal('script');
-                expect(secondTag.attrs).to.not.equal(undefined);
-                expect(secondTag.attrs!.type).to.equal('text/javascript');
-                expect(secondTag.attrs!.src).to.contain('import-map-overrides@latest');
+                const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes('import-map-overrides@latest'));
+                expect(imoTag).to.not.equal(undefined);
             }
             else {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
@@ -509,13 +525,8 @@ describe('vite-plugin-single-spa', () => {
             expect(xForm).to.not.equal(null);
             expect(xForm).to.not.equal(undefined);
             if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-                expect(xForm.tags).to.have.lengthOf(2);
-                const secondTag = xForm.tags[1];
-                expect(secondTag).to.not.equal(undefined);
-                expect(secondTag.tag).to.equal('script');
-                expect(secondTag.attrs).to.not.equal(undefined);
-                expect(secondTag.attrs!.type).to.equal('text/javascript');
-                expect(secondTag.attrs!.src).to.contain(`import-map-overrides@${imoVersion}`);
+                const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes(`import-map-overrides@${imoVersion}`));
+                expect(imoTag).to.not.equal(undefined);
             }
             else {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
@@ -551,13 +562,8 @@ describe('vite-plugin-single-spa', () => {
             expect(xForm).to.not.equal(null);
             expect(xForm).to.not.equal(undefined);
             if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-                expect(xForm.tags).to.have.lengthOf(2);
-                const secondTag = xForm.tags[1];
-                expect(secondTag).to.not.equal(undefined);
-                expect(secondTag.tag).to.equal('script');
-                expect(secondTag.attrs).to.not.equal(undefined);
-                expect(secondTag.attrs!.type).to.equal('text/javascript');
-                expect(secondTag.attrs!.src).to.equal(imoUrl);
+                const imoTag = searchForScriptTag(xForm.tags, undefined, { src: imoUrl });
+                expect(imoTag).to.not.equal(undefined);
             }
             else {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
@@ -592,14 +598,12 @@ describe('vite-plugin-single-spa', () => {
             expect(xForm).to.not.equal(null);
             expect(xForm).to.not.equal(undefined);
             if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-                expect(xForm.tags).to.have.lengthOf(imoValue ? 2 : 1);
+                const imoTag = searchForScriptTag(xForm.tags, t => ((t.attrs!.src as string) ?? '').includes('import-map-overrides@latest'));
                 if (imoValue) {
-                    const secondTag = xForm.tags[1];
-                    expect(secondTag).to.not.equal(undefined);
-                    expect(secondTag.tag).to.equal('script');
-                    expect(secondTag.attrs).to.not.equal(undefined);
-                    expect(secondTag.attrs!.type).to.equal('text/javascript');
-                    expect(secondTag.attrs!.src).to.contain(`import-map-overrides@latest`);
+                    expect(imoTag).to.not.equal(undefined);
+                }
+                else {
+                    expect(imoTag).to.equal(undefined);
                 }
             }
             else {
@@ -649,7 +653,13 @@ describe('vite-plugin-single-spa', () => {
             expect(xForm).to.not.equal(null);
             expect(xForm).to.not.equal(undefined);
             if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
-                expect(xForm.tags).to.have.lengthOf(0);
+                const imoTag = searchForScriptTag(xForm.tags, t =>
+                    typeof imoValue === 'function' ?
+                        (t.attrs!.src as string) === imoValue()
+                        : (typeof imoValue === 'string' ?
+                            ((t.attrs!.src as string) ?? '').includes(`import-map-overrides@${imoValue}`) :
+                            ((t.attrs!.src as string) ?? '').includes('import-map-overrides@latest')));
+                expect(imoTag).to.equal(undefined);
             }
             else {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
@@ -673,6 +683,316 @@ describe('vite-plugin-single-spa', () => {
             for (let cmd of viteCommands) {
                 it(`Should not include "import-map-overrides" if no import map is available on ${cmd}, even if "imo" is set to ${tc.valueDesc} on ${cmd}.`, () => noImoOnNoImportMapTest(cmd, tc.imoValue));
             }
+        }
+        const imoUiTest = async (viteCmd: ConfigEnv['command'], imoUiValue: SingleSpaRootPluginOptions['imoUi'], expectedToExist: boolean) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                throw new Error('Not implemented.');
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imoUi: imoUiValue };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoTag = searchTag(xForm.tags, 'import-map-overrides-');
+                const assertFn = expectedToExist ? () => expect(imoTag).to.not.equal(undefined) : () => expect(imoTag).to.equal(undefined);
+                assertFn();
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        const imoUiDefaultsTest = async (viteCmd: ConfigEnv['command'], importMapExists: boolean) => {
+            const fileExists = (_x: string) => importMapExists;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                return Promise.resolve(JSON.stringify(importMap));
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root' };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
+                const assertFn = importMapExists ? () => expect(imoUiTag).to.not.equal(undefined) : () => expect(imoUiTag).to.equal(undefined);
+                assertFn();
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        const imoUiDefaultsTestData = [
+            {
+                importMap: false,
+                text1: 'not ',
+                text2: 'no '
+            },
+            {
+                importMap: true,
+                text1: '',
+                text2: ''
+            }
+        ]
+        for (let cmd of viteCommands) {
+            for (let tc of imoUiDefaultsTestData) {
+                it(`Should ${tc.text1}inlcude the "import-map-overrides" UI element when the "imoUi" property is not explicitly set on ${cmd} and there are ${tc.text2}import maps.`, () => imoUiDefaultsTest(cmd, tc.importMap));
+            }
+        }
+        const imoUiIncludeTest = async (viteCmd: ConfigEnv['command'], imoUiOption: ImoUiVariant, variantName: string, expectToExist: boolean) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                return Promise.resolve(JSON.stringify(importMap));
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imoUi: imoUiOption };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoUiTag = searchTag(xForm.tags, `import-map-overrides-${variantName}`);
+                const assertFn = expectToExist ? () => expect(imoUiTag).to.not.equal(undefined) : () => expect(imoUiTag).to.equal(undefined);
+                assertFn();
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        const imoUiIncludeTestData: { imoUiOption: ImoUiVariant, variantName: string }[] = [
+            {
+                imoUiOption: true,
+                variantName: 'full'
+            }
+        ];
+        for (let cmd of viteCommands) {
+            for (let tc of imoUiIncludeTestData) {
+                it(`Should include the "import-map-overrides-${tc.variantName}" UI element when the "imoUi" property is set to ${tc.imoUiOption} on ${cmd}.`, () => imoUiIncludeTest(cmd, tc.imoUiOption, tc.variantName, true));
+            }
+        }
+        for (let cmd of viteCommands) {
+            it(`Should not include the "import-map-overrides" UI element when the "imoUi" property is set to false on ${cmd}.`, () => imoUiIncludeTest(cmd, false, '', false));
+        }
+        const imoUiNoAttrsTest = async (viteCmd: ConfigEnv['command'], imoUiOption: ImoUiVariant) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                return Promise.resolve(JSON.stringify(importMap));
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imoUi: imoUiOption };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoUiTag = searchTag(xForm.tags, `import-map-overrides-${imoUiOption}`);
+                expect(imoUiTag).to.not.equal(undefined);
+                expect(Object.keys(imoUiTag?.attrs ?? {})).to.have.lengthOf(0);
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        const imoUiNoAttrsTestData: ImoUiVariant[] = [
+            'list',
+            'popup'
+        ];
+        for (let cmd of viteCommands) {
+            for (let tc of imoUiNoAttrsTestData) {
+                it(`Should not include any attributes in the "import-map-overrides" UI element when the UI variant is ${tc} on ${cmd}.`, () => imoUiNoAttrsTest(cmd, tc));
+            }
+        }
+        const imoUiAttrsTest = async (viteCmd: ConfigEnv['command']) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                return Promise.resolve(JSON.stringify(importMap));
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imoUi: 'full' };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
+                expect(imoUiTag).to.not.equal(undefined);
+                expect(imoUiTag!.attrs!['trigger-position']).to.equal('bottom-right');
+                expect(imoUiTag!.attrs!['show-when-local-storage']).to.equal('imo-ui');
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        for (let cmd of viteCommands) {
+            it(`Should include the "trigger-position" and "show-when-local-storage" attributes in the "import-map-overrides-full" UI element with the defaults "bottom-right" and "imo-ui" on ${cmd}.`, () => imoUiAttrsTest(cmd));
+        }
+        const imoUiTriggerPosTest = async (viteCmd: ConfigEnv['command'], buttonPos: ImoUiOption['buttonPos']) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                return Promise.resolve(JSON.stringify(importMap));
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imoUi: { buttonPos } };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
+                expect(imoUiTag).to.not.equal(undefined);
+                expect(imoUiTag!.attrs!['trigger-position']).to.equal(buttonPos);
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        const imoUiTriggerPosTestData: ImoUiOption['buttonPos'][] = [
+            'bottom-left',
+            'bottom-right',
+            'top-left',
+            'top-right'
+        ];
+        for (let cmd of viteCommands) {
+            for (let tc of imoUiTriggerPosTestData) {
+                it(`Should set the "trigger-position" attribute value to ${tc} when the "imoUi.buttonPos" property is set to ${tc} on ${cmd}.`, () => imoUiTriggerPosTest(cmd, tc));
+            }
+        }
+        const imoUiLsKeyTest = async (viteCmd: ConfigEnv['command']) => {
+            const fileExists = (_x: string) => true;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const readFile = (_x: string, _opts: any) => {
+                return Promise.resolve(JSON.stringify(importMap));
+            };
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', imoUi: { localStorageKey: 'customLsValue' } };
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const imoUiTag = searchTag(xForm.tags, 'import-map-overrides-full');
+                expect(imoUiTag).to.not.equal(undefined);
+                expect(imoUiTag!.attrs!['show-when-local-storage']).to.equal('customLsValue');
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        }
+        for (let cmd of viteCommands) {
+            it(`Should set the "show-when-local-storage" attribute value to "customLsValue" when the "imoUi.localStorageKey" property is set to "customLsValue" on ${cmd}.`, () => imoUiLsKeyTest(cmd));
         }
     });
 });
