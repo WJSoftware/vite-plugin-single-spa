@@ -45,15 +45,17 @@ export default defineConfig({
 });
 ```
 
-Except for the options, which are explained below, this should be it for root projects.  For micro-frontend projects, 
-the file `src/spa.ts` must be created.  This file becomes the main export of the project and should export the 
-`single-spa` lifecycle functions.
+The options passed to the plug-in factory function determine the type of project (root or micro-frontend).  For 
+micro-frontend projects, the server port is required, while for root projects the type is required.
+
+Additionally for micro-frontend projects, the file `src/spa.ts (or js, jsx, tsx)` must be created.  This file becomes 
+the main export of the project and should export the `single-spa` lifecycle functions.
 
 ## single-spa Root Projects
 
 The `single-spa` *root project* (referred to as *root config* within the `single-spa` documentation) is the project 
 that loads all other micro-frontends and the one that has the `single-spa` package installed, and the one that 
-typically calls `registerApplication()` and `start()`.  The `single-spa` developers advertise as a best practice, to 
+typically calls `registerApplication()` and `start()`.  The `single-spa` developers advertise as a best practice to 
 make a root project that uses no framework.  In other words, that your root project be devoided of all user interface 
 elements.  This is a view I don't share, and this plug-in is capable of making a suitable Vite + XXX root project.  In 
 the end, the choice is yours.
@@ -71,6 +73,11 @@ export type SingleSpaRootPluginOptions = {
         build?: string;
     };
     imo?: boolean | string | (() => string);
+    imoUi?: boolean | 'full' | 'popup' | 'list' | {
+        variant?: boolean | 'full' | 'popup' | 'list';
+        buttonPos?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+        localStorageKey?: string;
+    };
 };
 ```
 
@@ -78,8 +85,7 @@ The `type` property is mandatory for root projects and must be the string `'root
 pertain to the use of import maps and the `import-map-overrides` package.  Long story short:  Vite, while in 
 development mode, inserts the script `@vite/client` as first child in the HTML page's `<head>` element, and this makes 
 the import maps non-functional, at least for the native `importmap` type.  The solution:  Make this plug-in add both 
-the import map script and the `import-map-overrides` package as first children of the `<head>` HTML element, as a post 
-action.
+the import map script and the `import-map-overrides` package as first children of the `<head>` HTML element.
 
 The `imo` option is used to control the inclusion of `import-map-overrides`.  Set it to `false` to exclude it; set to 
 `true` to include its latest version from the **JSDelivr**.  However, production deployments should never let unknown 
@@ -88,10 +94,10 @@ latest version".  Instead, specify the desired package version as a string.  The
 `import-map-overrides` is **v2.4.2** because **v3.0.0** (the latest at the time of this writing) doesn't work.
 
 ```typescript
-    vitePluginSingleSpa({
-        type: 'root',
-        imo: '2.4.2'
-    })
+vitePluginSingleSpa({
+    type: 'root',
+    imo: '2.4.2'
+})
 ```
 
 Just like the case of the latest version, this will also use the **JSDelivr** network.
@@ -103,32 +109,28 @@ If you wish to change the source of the package from **JSDelivr** to something e
 returns the package's URL.
 
 ```typescript
-    vitePluginSingleSpa({
-        type: 'root',
-        imo: () => `https://my.cdn.example.com/import-map-overrides@2.4.2`
-    })
+vitePluginSingleSpa({
+type: 'root',
+    imo: () => `https://my.cdn.example.com/import-map-overrides@2.4.2`
+})
 ```
+
+The `imoUi` property controls the inclusion of the `import-map-overrides` user interface.  The property's default 
+value is `true`, which is equivalent to `full`.  The values `full`, `popup` and `list` refer to the type of user 
+interface.  Refer to the package's documentation in case this is confusing.
+
+By default, the user interface will be configured to appear in the bottom right corner and become visible on the 
+presence of the `imo-ui` local storage variable.  If any of this is inconvenient, specify the value of `imoUi` as an 
+object with the `variant`, `buttonPos` and `localStorageKey` properties set to your liking.
+
+> **NOTE**:  At the time of this writing, the adverties button position functionality of `import-map-overrides` wasn't 
+working.  This package provides the configuration in case this is fixed in a future release.
 
 We finally reach the `importMaps` section of the options.  Use this section to specify file names and the import map 
 type.  The default behavior is to automatically import maps from the file `src/importMap.dev.json` whenever Vite runs 
 in `serve` mode (when you run the project with `npm run dev`), or the file `src/importMap.json` whenever vite runs in 
 `build` mode (when you run `npm run build`).  Note, however, that if you have no need to have different import maps, 
 then you can omit `src/importMap.dev.json` and just create `src/importMap.json`.
-
-#### Hiatus:  Odd Behavior of Vite's `base` Configuration Property
-
-The previous paragraph brings an important topic:  Even when Vite's documentation clerly states that `base` is used 
-both while serving and building, it doesn't respect full URL's while serving.  A full URL is a URL that starts with 
-the scheme (`http` or `https`).  Any full URL specified as base, which is what `single-spa` projects need, is reduced 
-to its path.
-
-Because of this, this package's documentation has the following to say:
-
-1. Please support the discussion at [Vite's GitHub repository](https://github.com/vitejs/vite/discussions/13927) by 
-upvoting it.  It requests Vite's core team to study the possibility to respect full URL's (known in code as external 
-URL's) in all modes, not just `build`.
-2. As a workaround for correct micro-frontend asset loading, use a set of import maps that use a compiled version of 
-your micro-frontends, and serve them using `npm run preview`.  This requires that you first run `npm run build`.
 
 Usually, the development import maps would look like this:
 
@@ -141,9 +143,14 @@ Usually, the development import maps would look like this:
 }
 ```
 
-This is because, while using `npm run dev`, no bundling takes place.  If you decide that you cannot properly test or 
-develop your micro-frontend with the assets missing (images, fonts, etc.), then you'll have to use `npm run preview` 
-and this requires the import maps to point to the built, or bundled, `spa.js`:
+This is because, while using `npm run dev`, no bundling takes place, so we directly reference the module in the `/src` 
+folder.
+
+While developing you may encounter a surprise:  Assets (images, fonts, etc.) referenced by the micro-frontend projects 
+don't load.  As of Vite v4.4.8, assets are not properly served while in `serve` mode because the `base` property is 
+trimmed down to its path.  If you decide that you cannot properly test or develop your micro-frontend with the assets 
+missing, then you'll have to use `npm run preview`, and this requires the import maps to point to the built, or 
+bundled, `spa.js`:
 
 ```json
 {
@@ -154,21 +161,24 @@ and this requires the import maps to point to the built, or bundled, `spa.js`:
 }
 ```
 
----
-
-Back to configuring import maps...
-
-What if you want or need to specify a different file name for your import maps?  No problem.  Use `importMaps.dev` to 
-specify the serve-time import map file; use `importMaps.buid` to specify the build-time import map file.
+Now, what if you want or need to specify a different file name for your import maps?  No problem.  Use 
+`importMaps.dev` to specify the serve-time import map file; use `importMaps.buid` to specify the build-time import map 
+file.
 
 As seen in the TypeScript definition, you can specify the type of import map you want.  The four choices are the four 
 possible options for the `import-map-overrides` package, and if not specified, it will default to 
 `overridable-importmap`.  Once again, I deviate from `single-spa`'s recommendation of using `SystemJS` as the module 
 import solution.  Long story short:  Native import maps, except for one bug, seem to work just fine, and I am pro 
-minimizing package dependencies in projects.
+minimizing package dependencies in projects.  Furthermore, if you read the 
+[Vite ecosystem page](https://single-spa.js.org/docs/ecosystem-vite/), you'll see that `SystemJS` is recommended 
+because, and I quote:
 
-> Read all about this import map topic in the [import-map-overrides](https://github.com/single-spa/import-map-overrides) 
-website.
+> since browser support for Import Maps is still pending
+
+This is no longer the case as seen in the [caniuse](https://caniuse.com/?search=import%20map) website.
+
+If you're confused about all this import map type thing, read all about this import map topic in the 
+[import-map-overrides](https://github.com/single-spa/import-map-overrides) website.
 
 ## single-spa Micro-Frontend Projects
 
@@ -180,9 +190,6 @@ ultimate goal:  Pieces of user interface living as entirely separate projects.
 The plug-in options available to micro-frontend projects are dictated by the following TypeScript type:
 
 ```typescript
-/**
- * Defines the plug-in options for Vite projects that are single-spa micro-frontentds.
- */
 export type SingleSpaMifePluginOptions = {
     type?: 'mife';
     serverPort: number;
@@ -198,30 +205,90 @@ package must know, or things will become harder to configure between the micro-f
 
 Especifically, micro-frontend projects are linked to the root project by means of its import map.  During development, 
 the import map will usually point to the micro-frontend's entry file with a full URL similar to 
-`http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  This URL host name and port values must 
-be set as the Vite project's `base` string for assets (images, fonts, etc.) to be properly served during development.
-
-> **IMPORTANT**:  As already mentioned, `base` has an odd behavior that makes this base-setting exercise futile, so 
-please upvote the [GitHub discussion](https://github.com/vitejs/vite/discussions/13927) that wants to start a change 
-on this topic.
+`http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  It is very difficult to imagine a 
+`single-spa` project that works with dynamic ports.
 
 The `deployedBase` property is applied as Vite's `base` property during build (`npm run build`).  Specify what makes 
 sense to your project.  For example, a Kubernetes deployment under a single domain name would probably use path 
 prefixes for the individual micro-frontends, such as `/mifeA`.  Use this property to specify this prefix.
 
-> **IMPORTANT**:  This version of the plug-in has code to set the base to `http://localhost:<server port>` if building 
+This version of the plug-in has code to set the base to `http://localhost:<server port>` if building 
 and `deployedBase` is empty.  This has been made like this to support the workaround of working locally the 
-micro-frontend by means of building and previewing.
+micro-frontend by means of building and previewing when it is absolutely necessary to see/work the micro-frontend with 
+assets loading properly.
+
+> **IMPORTANT**:  Please upvote this [GitHub discussion](https://github.com/vitejs/vite/discussions/13927) that wants 
+to start a change around how the `base` property is processed so we can all have assets while in `serve` mode.
 
 The last property, `spaEntryPoint`, has a default value of `src/spa.ts` and is used to specify the module that exports 
 all of the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If your entry module's file name 
-differs, use this property to specify it.  Note that if your project is not using TypeScript, you'll still have to 
-specify this property just to change the file extension.
+differs, use this property to specify it.  Note that if your project is using a different file extension, you'll have 
+to specify this property just to change the file extension.
+
+## Mounting and Unmounting CSS
+
+Vite comes with magic that inserts a micro-frontend's CSS in the root project's index page when it is mounted.  One 
+more thing to love about Vite, for sure.  However, this is lost when the project is built.
+
+This plug-in provides an extension module that provides ready-to-use `single-spa` lifecycle functions for the bundled 
+CSS.  It is very simple to use.  The following is an example of the spa entry file `src/spa.tsx` of a Vite + React 
+project created with `npm create vite@latest`:
+
+```typescript
+import React from 'react';
+import ReactDOMClient from 'react-dom/client';
+// @ts-ignore
+import singleSpaReact from 'single-spa-react';
+import App from './App';
+import { cssLifecycle } from 'vite-plugin-single-spa/ex';
+
+const lc = singleSpaReact({
+    React,
+    ReactDOMClient,
+    rootComponent: App,
+    errorBoundary(err: any, _info: any, _props: any) {
+        return <div>Error: {err}</div>
+    }
+});
+
+export const bootstrap = [cssLifecycle.bootstrap, lc.bootstrap];
+export const mount = [cssLifecycle.mount, lc.mount];
+export const unmount = [cssLifecycle.unmount, lc.unmount];
+```
+
+All you have to do to harness this functionality is to import `cssLifecycle` from the extension module named 
+`vite-plugin-single-spa/ex`, and return the functions as shown above.  This should work for any framework, not just 
+React.
+
+## Vite Environment Information
+
+The same extension module that provides CSS lifecycle functions also provide basic information about the Vite 
+environment.  Especifically, it exports the `viteEnv` object which is described as:
+
+```typescript
+export const viteEnv: {
+    serving: boolean,
+    built: boolean,
+    mode: string
+};
+```
+
+The `serving` property will be true if the project is being served by Vite in `serve` mode.  The `built` property will 
+be true if the project is being run after being built.  The `mode` property is just the mode used when Vite was run, 
+and by default is the string `development` for `serve` mode, and `production` for builds.
+
+> Unlike `cssLifecycles` which is only useful to micro-frontend projects, `viteEnv` is available to root projects as 
+well.
+
+To make use of it for whatever purpose, import it:
+
+```typescript
+import { viteEnv } from 'vite-plugin-single-spa/ex';
+```
 
 ## In-Depth Coverage On the Topic
 
 This plug-in was born as the result of investigating `single-spa`, **Svelte** and the general use of Vite-based 
 projects.  This investigation was documented in the form of a blog 
 [in hashnode](https://webjose.hashnode.dev/series/single-spa-and-svelte).  Feel free to read it in order to fully 
-understand how this plug-in works and the reasons behind its behavior.  You'll also find helpful examples about almost 
-anything related to this topic, including `single-spa` entry modules that mount and unmount CSS.
+understand how this plug-in works and the reasons behind its behavior.
