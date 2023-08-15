@@ -150,7 +150,6 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 preserveEntrySignatures = false;
             }
             cfg.build = {
-                manifest: true,
                 rollupOptions: {
                     input,
                     preserveEntrySignatures,
