@@ -6,8 +6,13 @@ import { pluginFactory } from '../src/plugin-factory.js';
 import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption } from "vite-plugin-single-spa";
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
 import type { PreserveEntrySignaturesOption, OutputOptions } from 'rollup';
+import { extensionModuleName } from '../src/ex-defs.js';
+import path from 'path';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
+type ResolveIdHandler = (this: void, source: string) => string;
+type LoadHandler = (this: void, id: string) => Promise<string>;
+type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => void;
 
 const viteCommands: ConfigEnv['command'][] = [
     'serve',
@@ -146,6 +151,258 @@ describe('vite-plugin-single-spa', () => {
         ];
         for (let tc of baseTestData) {
             it(`Should set Vite's base property to "${tc.expectedBase}" when deployedBase is "${tc.config.deployedBase}" on build.`, () => baseTest(tc.config, tc.expectedBase));
+        }
+        const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, expectedResult: string | null) => {
+            // Arrange.
+            const plugIn = vitePluginSingleSpa({ serverPort: 4444 });
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugIn.config as ConfigHandler)({}, env);
+
+            // Act
+            const resolvedId = (plugIn.resolveId as ResolveIdHandler)(source);
+
+            // Assert.
+            expect(resolvedId).to.equal(expectedResult);
+        }
+        const exModuleIdResolutionTestData = [
+            {
+                source: 'abc',
+                expectedResult: null,
+                text: 'not '
+            },
+            {
+                source: extensionModuleName,
+                expectedResult: extensionModuleName,
+                text: ''
+            },
+            {
+                source: 'vite-plugin-single-spa',
+                expectedResult: null,
+                text: 'not '
+            }
+        ];
+        for (let cmd of viteCommands) {
+            for (let tc of exModuleIdResolutionTestData) {
+                it(`Should ${tc.text}positively identify the module ID "${tc.source}" on ${cmd}.`, () => exModuleIdResolutionTest(cmd, tc.source, tc.expectedResult));
+            }
+        }
+        const exModuleBuildingTest = async (viteCmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string) => {
+            // Arrange.
+            let expectedModuleRead = false;
+            const moduleContent = 'abc - def';
+            const readFile = (fileName: string, _opts: any) => {
+                const name = path.basename(fileName);
+                if (name === expectedModuleName) {
+                    expectedModuleRead = true;
+                    return Promise.resolve(moduleContent);
+                }
+                return Promise.resolve('');
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugIn.config as ConfigHandler)({}, env);
+
+            // Act.
+            const moduleCode = await (plugIn.load as LoadHandler)(moduleId);
+
+            // Assert.
+            expect(expectedModuleRead).to.equal(true);
+            expect(moduleCode).to.contain(moduleContent);
+        };
+        const exModuleBuildingTestData: { cmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string }[] = [
+            {
+                cmd: 'build',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'css.js'
+            },
+            {
+                cmd: 'serve',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'no-css.js'
+            },
+            {
+                cmd: 'build',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'vite-env.js'
+            },
+            {
+                cmd: 'serve',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'vite-env.js'
+            }
+        ];
+        for (let tc of exModuleBuildingTestData) {
+            it(`Should include the contents of module "${tc.expectedModuleName}" on ${tc.cmd} while loading module ID "${tc.moduleId}".`, () => exModuleBuildingTest(tc.cmd, tc.moduleId, tc.expectedModuleName));
+        }
+        const viteEnvValueReplacementTest = async (viteCmd: ConfigEnv['command'], mode: ConfigEnv['mode']) => {
+            // Arrange.
+            const moduleContent = "'{serving}'\n'{built}'\n{mode}";
+            const readFile = (fileName: string, _opts: any) => {
+                const name = path.basename(fileName);
+                if (name === 'vite-env.js') {
+                    return Promise.resolve(moduleContent);
+                }
+                return Promise.resolve('');
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+            const env: ConfigEnv = { command: viteCmd, mode: mode };
+            await (plugIn.config as ConfigHandler)({}, env);
+
+            // Act.
+            const moduleCode = await (plugIn.load as LoadHandler)(extensionModuleName);
+
+            // Assert.
+            expect(moduleCode).to.contain(`${viteCmd === 'serve'}\n${viteCmd === 'build'}\n${mode}`);
+        };
+        const viteEnvValueReplacementTestData: { cmd: ConfigEnv['command'], mode: ConfigEnv['mode'] }[] = [
+            {
+                cmd: 'build',
+                mode: 'production'
+            },
+            {
+                cmd: 'serve',
+                mode: 'development'
+            },
+            {
+                cmd: 'build',
+                mode: 'custom'
+            },
+            {
+                cmd: 'serve',
+                mode: 'customdev'
+            }
+        ];
+        for (let tc of viteEnvValueReplacementTestData) {
+            it(`Should replace the values of "viteEnv" appropriately on ${tc.cmd} with mode "${tc.mode}".`, () => viteEnvValueReplacementTest(tc.cmd, tc.mode));
+        }
+        const cssFileNamesInsertionTest = async (bundle: Record<string, any>, bundleCodes: Record<string, string>) => {
+            // Arrange.
+            const plugIn = vitePluginSingleSpa({ serverPort: 4444 });
+            const env: ConfigEnv = { command: 'build', mode: 'production' };
+            await (plugIn.config as ConfigHandler)({}, env);
+            for (let x in bundle) {
+                bundle[x].code = bundleCodes[x];
+            }
+
+            // Act.
+            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+
+            // Assert.
+            for (let x in bundle) {
+                const entry = bundle[x];
+                if (entry.type === 'chunk' && entry.isEntry) {
+                    let cssFiles = '';
+                    entry.viteMetadata?.importedCss.forEach((css: string) => cssFiles += `,"${css}"`);
+                    if (cssFiles.length > 0) {
+                        cssFiles = cssFiles.substring(1);
+                    }
+                expect(entry.code).to.contain(cssFiles);
+                }
+                else {
+                    expect(entry.code).to.equal(bundleCodes[x]);
+                }
+            }
+        };
+        const buildSet = (items: string[]) => new Set(items);
+        const cssFileNamesInsertionTestData: { bundle: Record<string, any>, bundleCodes: Record<string, string>, text: string }[] = [
+            {
+                bundle: {
+                    'a.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['a.css'])
+                        }
+                    }
+                },
+                bundleCodes: {
+                    'a.js': '"{CSS_FILE_LIST}"'
+                },
+                text: '1 entry: 1 css'
+            },
+            {
+                bundle: {
+                    'a.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['a.css', 'b.css'])
+                        }
+                    }
+                },
+                bundleCodes: {
+                    'a.js': '"{CSS_FILE_LIST}"'
+                },
+                text: '1 entry: 2 css'
+            },
+            {
+                bundle: {
+                    'a.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['a.css'])
+                        }
+                    },
+                    'b.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['d.css'])
+                        }
+                    }
+                },
+                bundleCodes: {
+                    'a.js': '"{CSS_FILE_LIST}"',
+                    'b.js': '"{CSS_FILE_LIST}"'
+                },
+                text: '2 entries: 1 css, 1 css'
+            },
+            {
+                bundle: {
+                    'a.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['a.css'])
+                        }
+                    },
+                    'b.js': {
+                        type: 'chunk',
+                        isEntry: false
+                    }
+                },
+                bundleCodes: {
+                    'a.js': '"{CSS_FILE_LIST}"'
+                },
+                text: '2 entries: 1 css, N/A'
+            },
+            {
+                bundle: {
+                    'a.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['a.css'])
+                        }
+                    },
+                    'b.js': {
+                        type: 'chunk',
+                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['d.css'])
+                        }
+                    }
+                },
+                bundleCodes: {
+                    'a.js': '"{CSS_FILE_LIST}"',
+                    'b.js': '"{CSS_FILE_LIST}"'
+                },
+                text: '2 entries: 1 css, 1 css'
+            },
+        ]
+        for (let tc of cssFileNamesInsertionTestData) {
+            it(`Should insert the list of CSS bundles of entry chunks: ${tc.text}`, () => cssFileNamesInsertionTest(tc.bundle, tc.bundleCodes));
         }
     });
     describe('Root Configuration', () => {

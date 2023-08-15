@@ -1,8 +1,11 @@
 import { promises as fs, existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
 import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption } from 'rollup';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption } from "vite-plugin-single-spa";
+import { extensionModuleName } from './ex-defs.js';
 
 /*
 NOTE:
@@ -42,9 +45,33 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
         let configFn: ((viteOpts: ConfigEnv) => UserConfig | Promise<UserConfig>) | undefined = mifeConfig;
         let htmlXformFn: (html: string) => IndexHtmlTransformResult | void | Promise<IndexHtmlTransformResult | void> = () => { return; };
         let viteEnv: ConfigEnv;
+        const baseModulePath = path.dirname(fileURLToPath(import.meta.url));
+        let cssModuleFileName: string;
+        let exModule: string;
         if (isRootConfig(config ?? { type: 'mife', serverPort: 0 })) {
             configFn = undefined;
             htmlXformFn = rootIndexTransform;
+        }
+
+        /**
+         * Builds a full path using the provided file name and this module's file location.
+         * @param fileName Module file name (just name and extension).
+         * @returns The full path of the module.
+         */
+        function buildPeerModulePath(fileName: string) {
+            return path.resolve(path.join(baseModulePath), fileName);
+        }
+
+        /**
+         * Builds the Ex dynamic module.
+         * @returns The finalized contents of the "vite-plugin-single-spa/ex" module.
+         */
+        async function buildExModule() {
+            return (await readFile(buildPeerModulePath('vite-env.js'), { encoding: 'utf8' }) as string)
+                .replace("'{serving}'", `${viteEnv.command === 'serve'}`)
+                .replace("'{built}'", `${viteEnv.command === 'build'}`)
+                .replace('{mode}', viteEnv.mode)
+                + '\n' + (await readFile(buildPeerModulePath(cssModuleFileName), { encoding: 'utf8' }));
         }
 
         /**
@@ -215,10 +242,35 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             name: 'vite-plugin-single-spa',
             config(_cfg, opts) {
                 viteEnv = opts;
+                cssModuleFileName = viteEnv.command === 'build' ? 'css.js' : 'no-css.js';
                 if (configFn) {
                     return configFn(opts);
                 }
                 return {};
+            },
+            resolveId(source, _importer, _options) {
+                if (source === extensionModuleName) {
+                    return source;
+                }
+                return null;
+            },
+            async load(id, _options) {
+                if (id === extensionModuleName) {
+                    return exModule = exModule ?? (await buildExModule());
+                }
+            },
+            generateBundle(_options, bundle, _isWrite) {
+                for (let x in bundle) {
+                    const entry = bundle[x];
+                    if (entry.type === 'chunk' && entry.isEntry) {
+                        let cssFiles = '';
+                        entry.viteMetadata?.importedCss.forEach(css => cssFiles += `,"${css}"`);
+                        if (cssFiles.length > 0) {
+                            cssFiles = cssFiles.substring(1);
+                        }
+                        entry.code = entry.code.replace('"{CSS_FILE_LIST}"', cssFiles);
+                    }
+                }
             },
             transformIndexHtml: {
                 order: 'post',

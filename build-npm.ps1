@@ -77,6 +77,8 @@ begin {
     Copy-Item .\src\package.json .\out
     Copy-Item .\PublishNote.md .\out\README.md -Force
     Get-Content .\README.md | Add-Content .\out\README.md -Encoding UTF8
+    New-Item .\out\ex -ItemType Directory
+    Copy-Item .\src\ex.d.ts .\out\ex\index.d.ts
     if (!$Publish) {
         Write-Output "Running npm publish in dry run mode."
         npm publish .\out\ --dry-run
