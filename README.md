@@ -123,8 +123,8 @@ By default, the user interface will be configured to appear in the bottom right 
 presence of the `imo-ui` local storage variable.  If any of this is inconvenient, specify the value of `imoUi` as an 
 object with the `variant`, `buttonPos` and `localStorageKey` properties set to your liking.
 
-> **NOTE**:  At the time of this writing, the adverties button position functionality of `import-map-overrides` wasn't 
-working.  This package provides the configuration in case this is fixed in a future release.
+> **NOTE**:  At the time of this writing, the advertised button position functionality of `import-map-overrides` 
+wasn't working.  This package provides the configuration in case this is fixed in a future release.
 
 We finally reach the `importMaps` section of the options.  Use this section to specify file names and the import map 
 type.  The default behavior is to automatically import maps from the file `src/importMap.dev.json` whenever Vite runs 
@@ -132,7 +132,7 @@ in `serve` mode (when you run the project with `npm run dev`), or the file `src/
 `build` mode (when you run `npm run build`).  Note, however, that if you have no need to have different import maps, 
 then you can omit `src/importMap.dev.json` and just create `src/importMap.json`.
 
-Usually, the development import maps would look like this:
+Usually, the development import map would look like this:
 
 ```json
 {
@@ -146,11 +146,8 @@ Usually, the development import maps would look like this:
 This is because, while using `npm run dev`, no bundling takes place, so we directly reference the module in the `/src` 
 folder.
 
-While developing you may encounter a surprise:  Assets (images, fonts, etc.) referenced by the micro-frontend projects 
-don't load.  As of Vite v4.4.8, assets are not properly served while in `serve` mode because the `base` property is 
-trimmed down to its path.  If you decide that you cannot properly test or develop your micro-frontend with the assets 
-missing, then you'll have to use `npm run preview`, and this requires the import maps to point to the built, or 
-bundled, `spa.js`:
+Building the micro-frontend, on the other hand, produces a `spa.js` bundle at the root of the `dist` folder, so the 
+building import map would look like this:
 
 ```json
 {
@@ -160,6 +157,22 @@ bundled, `spa.js`:
     }
 }
 ```
+
+Of course, that would be if you were building to **test locally** the build using `npm run preview`.  Whenever 
+building for deployment, it will be more like this:
+
+```json
+{
+    "imports": {
+        "@learnSspa/spa01": "/spa01-prefix/spa.js",
+        "@learnSspa/spa02": "/spas02-prefix/spa.js"
+    }
+}
+```
+
+The above is a popular Kubernetes deployment option:  Set the K8s ingress up so that requests that start with the 
+micro-frontend prefix are routed to the pod that serves that micro-frontend.  In the end the final look of the import 
+map is up to you and your deployment setup.
 
 Now, what if you want or need to specify a different file name for your import maps?  No problem.  Use 
 `importMaps.dev` to specify the serve-time import map file; use `importMaps.buid` to specify the build-time import map 
@@ -193,7 +206,6 @@ The plug-in options available to micro-frontend projects are dictated by the fol
 export type SingleSpaMifePluginOptions = {
     type?: 'mife';
     serverPort: number;
-    deployedBase?: string;
     spaEntryPoint?: string;
 };
 ```
@@ -207,18 +219,6 @@ Especifically, micro-frontend projects are linked to the root project by means o
 the import map will usually point to the micro-frontend's entry file with a full URL similar to 
 `http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  It is very difficult to imagine a 
 `single-spa` project that works with dynamic ports.
-
-The `deployedBase` property is applied as Vite's `base` property during build (`npm run build`).  Specify what makes 
-sense to your project.  For example, a Kubernetes deployment under a single domain name would probably use path 
-prefixes for the individual micro-frontends, such as `/mifeA`.  Use this property to specify this prefix.
-
-This version of the plug-in has code to set the base to `http://localhost:<server port>` if building 
-and `deployedBase` is empty.  This has been made like this to support the workaround of working locally the 
-micro-frontend by means of building and previewing when it is absolutely necessary to see/work the micro-frontend with 
-assets loading properly.
-
-> **IMPORTANT**:  Please upvote this [GitHub discussion](https://github.com/vitejs/vite/discussions/13927) that wants 
-to start a change around how the `base` property is processed so we can all have assets while in `serve` mode.
 
 The last property, `spaEntryPoint`, has a default value of `src/spa.ts` and is used to specify the module that exports 
 all of the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If your entry module's file name 

@@ -159,36 +159,6 @@ describe('vite-plugin-single-spa', () => {
             expect(fileNameSetting).to.not.match(/\[hash\]/);
         };
         it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
-        const baseTest = async (options: SingleSpaMifePluginOptions, expectedBase: string) => {
-            // Arrange.
-            const readFile = (fileName: string, _opts: any) => {
-                if (fileName !== './package.json') {
-                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
-                }
-                return Promise.resolve(JSON.stringify(pkgJson));
-            };
-            const plugIn = pluginFactory(readFile)(options);
-            const env: ConfigEnv = { command: 'build', mode: 'development' };
-
-            // Act.
-            const config = await (plugIn.config as ConfigHandler)({}, env);
-
-            // Assert.
-            expect(config.base).to.equal(expectedBase);
-        };
-        const baseTestData: { config: SingleSpaMifePluginOptions, expectedBase: string }[] = [
-            {
-                config: { serverPort: 4444 },
-                expectedBase: 'http://localhost:4444'
-            },
-            {
-                config: { serverPort: 4444, deployedBase: '/custombase' },
-                expectedBase: '/custombase'
-            }
-        ];
-        for (let tc of baseTestData) {
-            it(`Should set Vite's base property to "${tc.expectedBase}" when deployedBase is "${tc.config.deployedBase}" on build.`, () => baseTest(tc.config, tc.expectedBase));
-        }
         const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, expectedResult: string | null) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {

@@ -138,7 +138,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 projectId = projectId.substring(0, 20);
             }
             cfg.server = {
-                port: (config as SingleSpaMifePluginOptions).serverPort
+                port: (config as SingleSpaMifePluginOptions).serverPort,
+                origin: `http://localhost:${(config as SingleSpaMifePluginOptions).serverPort}`
             };
             cfg.preview = {
                 port: (config as SingleSpaMifePluginOptions).serverPort
@@ -149,7 +150,6 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             if (viteOpts.command === 'build') {
                 input['spa'] = (config as SingleSpaMifePluginOptions)?.spaEntryPoint ?? 'src/spa.ts';
                 preserveEntrySignatures = 'exports-only';
-                cfg.base = (config as SingleSpaMifePluginOptions).deployedBase ?? `http://localhost:${(config as SingleSpaMifePluginOptions).serverPort}`;
             }
             else {
                 input['index'] = 'index.html';

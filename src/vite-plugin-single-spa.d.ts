@@ -28,10 +28,6 @@ declare module "vite-plugin-single-spa" {
          */
         serverPort: number;
         /**
-         * If needed, specify the base URL when deploying under a nested public path.
-         */
-        deployedBase?: string;
-        /**
          * The path to the file that exports the single-spa lifecycle functions.
          */
         spaEntryPoint?: string;
