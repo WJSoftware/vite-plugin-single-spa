@@ -44,15 +44,23 @@ function searchForScriptTag(tags: HtmlTagDescriptor[], predicate?: (t: HtmlTagDe
     return searchTag(tags, 'script', { type: 'text/javascript', ...(attrs ?? {}) }, predicate);
 }
 
-// Plug-in for all tests that don't require mocking.
-const vitePluginSingleSpa = pluginFactory();
+// Mocked package.json.
+const pkgJson = {
+    name: 'my-project'
+};
 
 describe('vite-plugin-single-spa', () => {
     describe('Micro-Frontend Configuration', () => {
         it('Should default to micro-frontend configuration if type is not specified.', async () => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4100 };
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: 'serve', mode: 'development' };
 
             // Act.
@@ -65,7 +73,13 @@ describe('vite-plugin-single-spa', () => {
         const portTest = async (cmd: ConfigEnv['command']) => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4111 };
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: cmd, mode: 'development' };
 
             // Act.
@@ -82,7 +96,13 @@ describe('vite-plugin-single-spa', () => {
         const inputTest = async (inputProp: string, viteCmd: ConfigEnv['command']) => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4111 };
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: viteCmd, mode: 'development' };
 
             // Act.
@@ -98,7 +118,13 @@ describe('vite-plugin-single-spa', () => {
         const entrySignatureTest = async (viteCmd: ConfigEnv['command'], expectedPropValue: PreserveEntrySignaturesOption) => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4111 };
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: viteCmd, mode: 'development' };
 
             // Act.
@@ -114,7 +140,13 @@ describe('vite-plugin-single-spa', () => {
         const fileNamesTest = async (propName: keyof OutputOptions) => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4111 };
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: 'build', mode: 'development' };
 
             // Act.
@@ -126,11 +158,16 @@ describe('vite-plugin-single-spa', () => {
             const fileNameSetting = (outputOpts as OutputOptions)[propName];
             expect(fileNameSetting).to.not.match(/\[hash\]/);
         };
-        it("Should set the output's asset file names to a hash-less pattern.", () => fileNamesTest('assetFileNames'));
         it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
         const baseTest = async (options: SingleSpaMifePluginOptions, expectedBase: string) => {
             // Arrange.
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: 'build', mode: 'development' };
 
             // Act.
@@ -154,7 +191,13 @@ describe('vite-plugin-single-spa', () => {
         }
         const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, expectedResult: string | null) => {
             // Arrange.
-            const plugIn = vitePluginSingleSpa({ serverPort: 4444 });
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
             const env: ConfigEnv = { command: viteCmd, mode: 'development' };
             await (plugIn.config as ConfigHandler)({}, env);
 
@@ -192,6 +235,9 @@ describe('vite-plugin-single-spa', () => {
             const moduleContent = 'abc - def';
             const readFile = (fileName: string, _opts: any) => {
                 const name = path.basename(fileName);
+                if (name === 'package.json') {
+                    return Promise.resolve(JSON.stringify(pkgJson));
+                }
                 if (name === expectedModuleName) {
                     expectedModuleRead = true;
                     return Promise.resolve(moduleContent);
@@ -239,6 +285,9 @@ describe('vite-plugin-single-spa', () => {
             const moduleContent = "'{serving}'\n'{built}'\n{mode}";
             const readFile = (fileName: string, _opts: any) => {
                 const name = path.basename(fileName);
+                if (name === 'package.json') {
+                    return Promise.resolve(JSON.stringify(pkgJson));
+                }
                 if (name === 'vite-env.js') {
                     return Promise.resolve(moduleContent);
                 }
@@ -277,7 +326,13 @@ describe('vite-plugin-single-spa', () => {
         }
         const cssFileNamesInsertionTest = async (bundle: Record<string, any>, bundleCodes: Record<string, string>) => {
             // Arrange.
-            const plugIn = vitePluginSingleSpa({ serverPort: 4444 });
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
             const env: ConfigEnv = { command: 'build', mode: 'production' };
             await (plugIn.config as ConfigHandler)({}, env);
             for (let x in bundle) {
@@ -290,13 +345,13 @@ describe('vite-plugin-single-spa', () => {
             // Assert.
             for (let x in bundle) {
                 const entry = bundle[x];
-                if (entry.type === 'chunk' && entry.isEntry) {
+                if (entry.type === 'chunk') {
                     let cssFiles = '';
                     entry.viteMetadata?.importedCss.forEach((css: string) => cssFiles += `,"${css}"`);
                     if (cssFiles.length > 0) {
                         cssFiles = cssFiles.substring(1);
                     }
-                expect(entry.code).to.contain(cssFiles);
+                    expect(entry.code).to.contain(cssFiles);
                 }
                 else {
                     expect(entry.code).to.equal(bundleCodes[x]);
@@ -309,107 +364,157 @@ describe('vite-plugin-single-spa', () => {
                 bundle: {
                     'a.js': {
                         type: 'chunk',
-                        isEntry: true,
                         viteMetadata: {
                             importedCss: buildSet(['a.css'])
                         }
                     }
                 },
                 bundleCodes: {
-                    'a.js': '"{CSS_FILE_LIST}"'
+                    'a.js': '"{vpss:CSS_FILE_LIST}"'
                 },
-                text: '1 entry: 1 css'
+                text: '1 chunk: 1 css'
             },
             {
                 bundle: {
                     'a.js': {
                         type: 'chunk',
-                        isEntry: true,
                         viteMetadata: {
                             importedCss: buildSet(['a.css', 'b.css'])
                         }
                     }
                 },
                 bundleCodes: {
-                    'a.js': '"{CSS_FILE_LIST}"'
+                    'a.js': '"{vpss:CSS_FILE_LIST}"'
                 },
-                text: '1 entry: 2 css'
+                text: '1 chunk: 2 css'
             },
             {
                 bundle: {
                     'a.js': {
                         type: 'chunk',
-                        isEntry: true,
                         viteMetadata: {
                             importedCss: buildSet(['a.css'])
                         }
                     },
                     'b.js': {
                         type: 'chunk',
-                        isEntry: true,
                         viteMetadata: {
                             importedCss: buildSet(['d.css'])
                         }
                     }
                 },
                 bundleCodes: {
-                    'a.js': '"{CSS_FILE_LIST}"',
-                    'b.js': '"{CSS_FILE_LIST}"'
+                    'a.js': '"{vpss:CSS_FILE_LIST}"',
+                    'b.js': '"{vpss:CSS_FILE_LIST}"'
                 },
-                text: '2 entries: 1 css, 1 css'
+                text: '2 chunks: 1 css, 1 css'
             },
             {
                 bundle: {
                     'a.js': {
                         type: 'chunk',
-                        isEntry: true,
+                        viteMetadata: {
+                            importedCss: buildSet(['a.css'])
+                        }
+                    },
+                    'b.js': {
+                        type: 'chunk'
+                    }
+                },
+                bundleCodes: {
+                    'a.js': '"{vpss:CSS_FILE_LIST}"',
+                    'b.js': 'import abc from "abc";'
+                },
+                text: '2 chunks: 1 css, N/A'
+            },
+            {
+                bundle: {
+                    'a.js': {
+                        type: 'chunk',
                         viteMetadata: {
                             importedCss: buildSet(['a.css'])
                         }
                     },
                     'b.js': {
                         type: 'chunk',
-                        isEntry: false
-                    }
-                },
-                bundleCodes: {
-                    'a.js': '"{CSS_FILE_LIST}"'
-                },
-                text: '2 entries: 1 css, N/A'
-            },
-            {
-                bundle: {
-                    'a.js': {
-                        type: 'chunk',
-                        isEntry: true,
                         viteMetadata: {
-                            importedCss: buildSet(['a.css'])
-                        }
-                    },
-                    'b.js': {
-                        type: 'chunk',
-                        isEntry: true,
-                        viteMetadata: {
-                            importedCss: buildSet(['d.css'])
+                            importedCss: buildSet(['d.css', 'e.css'])
                         }
                     }
                 },
                 bundleCodes: {
-                    'a.js': '"{CSS_FILE_LIST}"',
-                    'b.js': '"{CSS_FILE_LIST}"'
+                    'a.js': '"{vpss:CSS_FILE_LIST}"',
+                    'b.js': '"{vpss:CSS_FILE_LIST}"'
                 },
-                text: '2 entries: 1 css, 1 css'
+                text: '2 chunks: 1 css, 2 css'
             },
         ]
         for (let tc of cssFileNamesInsertionTestData) {
-            it(`Should insert the list of CSS bundles of entry chunks: ${tc.text}`, () => cssFileNamesInsertionTest(tc.bundle, tc.bundleCodes));
+            it(`Should insert the list of CSS bundles of chunks: ${tc.text}`, () => cssFileNamesInsertionTest(tc.bundle, tc.bundleCodes));
         }
+        it("Should insert the the package's name in the chunks that require it.", async () => {
+            // Arrange.
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+            const env: ConfigEnv = { command: 'build', mode: 'production' };
+            await (plugIn.config as ConfigHandler)({}, env);
+            const bundle = {
+                'a.js': {
+                    type: 'chunk',
+                    code: '{vpss:PROJECT_ID}'
+                }
+            };
+
+            // Act.
+            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+
+            // Assert.
+            const entry = bundle['a.js'];
+            expect(entry.code).to.equal(pkgJson.name);
+        });
+        it("Should insert the the specified project ID in the chunks that require it.", async () => {
+            // Arrange.
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const projectId = 'custom-pid';
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444, projectId });
+            const env: ConfigEnv = { command: 'build', mode: 'production' };
+            await (plugIn.config as ConfigHandler)({}, env);
+            const bundle = {
+                'a.js': {
+                    type: 'chunk',
+                    code: '{vpss:PROJECT_ID}'
+                }
+            };
+
+            // Act.
+            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+
+            // Assert.
+            const entry = bundle['a.js'];
+            expect(entry.code).to.equal(projectId);
+        });
     });
     describe('Root Configuration', () => {
         const configTest = async (viteCmd: ConfigEnv['command']) => {
             // Assert.
             const options: SingleSpaRootPluginOptions = { type: 'root' };
-            const plugIn = vitePluginSingleSpa(options);
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
             const env: ConfigEnv = { command: viteCmd, mode: 'development' };
 
             // Act.

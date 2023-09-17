@@ -48,7 +48,9 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
         const baseModulePath = path.dirname(fileURLToPath(import.meta.url));
         let cssModuleFileName: string;
         let exModule: string;
-        if (isRootConfig(config ?? { type: 'mife', serverPort: 0 })) {
+        let projectId: string;
+        config.type = config.type ?? 'mife';
+        if (isRootConfig(config)) {
             configFn = undefined;
             htmlXformFn = rootIndexTransform;
         }
@@ -125,10 +127,15 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          * @param viteOpts Vite options.
          * @returns An object with the necessary Vite options for single-spa micro-frontends.
          */
-        function mifeConfig(viteOpts: ConfigEnv) {
+        async function mifeConfig(viteOpts: ConfigEnv) {
             const cfg: UserConfig = {};
             if (!config) {
                 return cfg;
+            }
+            if (!isRootConfig(config)) {
+                projectId = config.projectId ??
+                    (JSON.parse(await readFile('./package.json', { encoding: 'utf8' }) as string)).name;
+                projectId = projectId.substring(0, 20);
             }
             cfg.server = {
                 port: (config as SingleSpaMifePluginOptions).serverPort
@@ -136,7 +143,6 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             cfg.preview = {
                 port: (config as SingleSpaMifePluginOptions).serverPort
             };
-            const assetFileNames = 'assets/[name][extname]';
             const entryFileNames = '[name].js';
             const input: InputOption = {};
             let preserveEntrySignatures: PreserveEntrySignaturesOption;
@@ -155,7 +161,12 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     preserveEntrySignatures,
                     output: {
                         exports: 'auto',
-                        assetFileNames,
+                        assetFileNames: ai => {
+                            if (ai.name?.endsWith('.css')) {
+                                return `assets/vpss(${projectId})[name]-[hash][extname]`;
+                            }
+                            return 'assets/[name]-[hash][extname]';
+                        },
                         entryFileNames
                     }
                 }
@@ -239,11 +250,11 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
 
         return {
             name: 'vite-plugin-single-spa',
-            config(_cfg, opts) {
+            async config(_cfg, opts) {
                 viteEnv = opts;
                 cssModuleFileName = viteEnv.command === 'build' ? 'css.js' : 'no-css.js';
                 if (configFn) {
-                    return configFn(opts);
+                    return await configFn(opts);
                 }
                 return {};
             },
@@ -261,13 +272,15 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             generateBundle(_options, bundle, _isWrite) {
                 for (let x in bundle) {
                     const entry = bundle[x];
-                    if (entry.type === 'chunk' && entry.isEntry) {
+                    if (entry.type === 'chunk') {
                         let cssFiles = '';
                         entry.viteMetadata?.importedCss.forEach(css => cssFiles += `,"${css}"`);
                         if (cssFiles.length > 0) {
                             cssFiles = cssFiles.substring(1);
                         }
-                        entry.code = entry.code.replace('"{CSS_FILE_LIST}"', cssFiles);
+                        entry.code = entry.code
+                            ?.replace('{vpss:PROJECT_ID}', projectId)
+                            .replace('"{vpss:CSS_FILE_LIST}"', cssFiles);
                     }
                 }
             },

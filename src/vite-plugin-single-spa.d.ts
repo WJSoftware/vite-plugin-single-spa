@@ -35,6 +35,13 @@ declare module "vite-plugin-single-spa" {
          * The path to the file that exports the single-spa lifecycle functions.
          */
         spaEntryPoint?: string;
+        /**
+         * Unique identifier given to the project.  It is used to tag CSS assets so the cssLifecyle object in 
+         * the automatic module "vite-plugin-single-spa/ex" can properly manage the CSS lifecycle.
+         * 
+         * If not provided, the project's name (up to the first 20 letters) is used as identifier.
+         */
+        projectId?: string;
     };
 
     /**
