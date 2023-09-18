@@ -111,7 +111,7 @@ returns the package's URL.
 ```typescript
 vitePluginSingleSpa({
 type: 'root',
-    imo: () => `https://my.cdn.example.com/import-map-overrides@2.4.2`
+    imo: () => `https://my.cdn.example.com/import-map-overrides@3.1.0`
 })
 ```
 
@@ -162,7 +162,7 @@ building for deployment, it will be more like this:
 {
     "imports": {
         "@learnSspa/spa01": "/spa01-prefix/spa.js",
-        "@learnSspa/spa02": "/spas02-prefix/spa.js"
+        "@learnSspa/spa02": "/spa02-prefix/spa.js"
     }
 }
 ```
@@ -269,7 +269,7 @@ React.
 
 ## Vite Environment Information
 
-The same extension module that provides CSS lifecycle functions also provide basic information about the Vite 
+The same extension module that provides CSS lifecycle functions also provides basic information about the Vite 
 environment.  Especifically, it exports the `viteEnv` object which is described as:
 
 ```typescript
