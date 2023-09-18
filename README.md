@@ -91,12 +91,12 @@ The `imo` option is used to control the inclusion of `import-map-overrides`.  Se
 `true` to include its latest version from the **JSDelivr**.  However, production deployments should never let unknown 
 versions of packages to be loaded without prior testing, so it really isn't good practice to just say "include the 
 latest version".  Instead, specify the desired package version as a string.  The current recommended version of 
-`import-map-overrides` is **v2.4.2** because **v3.0.0** (the latest at the time of this writing) doesn't work.
+`import-map-overrides` is **v3.1.0**.
 
 ```typescript
 vitePluginSingleSpa({
     type: 'root',
-    imo: '2.4.2'
+    imo: '3.1.0'
 })
 ```
 
@@ -122,9 +122,6 @@ interface.  Refer to the package's documentation in case this is confusing.
 By default, the user interface will be configured to appear in the bottom right corner and become visible on the 
 presence of the `imo-ui` local storage variable.  If any of this is inconvenient, specify the value of `imoUi` as an 
 object with the `variant`, `buttonPos` and `localStorageKey` properties set to your liking.
-
-> **NOTE**:  At the time of this writing, the advertised button position functionality of `import-map-overrides` 
-wasn't working.  This package provides the configuration in case this is fixed in a future release.
 
 We finally reach the `importMaps` section of the options.  Use this section to specify file names and the import map 
 type.  The default behavior is to automatically import maps from the file `src/importMap.dev.json` whenever Vite runs 
