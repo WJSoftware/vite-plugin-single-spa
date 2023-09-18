@@ -299,3 +299,10 @@ This plug-in was born as the result of investigating `single-spa`, **Svelte** an
 projects.  This investigation was documented in the form of a blog 
 [in hashnode](https://webjose.hashnode.dev/series/single-spa-and-svelte).  Feel free to read it in order to fully 
 understand how this plug-in works and the reasons behind its behavior.
+
+## Roadmap
+
+- [ ] Multiple `single-spa` entry points
+- [ ] Option to set development entry point
+- [ ] Multiple import map files per mode (to support shared dependencies marked `external` in Vite)
+- [ ] SvelteKit?
