@@ -159,6 +159,25 @@ describe('vite-plugin-single-spa', () => {
             expect(fileNameSetting).to.not.match(/\[hash\]/);
         };
         it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
+        it("Should configure Vite's server.config property with the base URL (http://localhost:<port>).", async () => {
+            // Arrange.
+            const port = 4321;
+            const options: SingleSpaMifePluginOptions = { serverPort: port };
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
+            const env: ConfigEnv = { command: 'build', mode: 'development' };
+
+            // Act.
+            const config = await (plugIn.config as ConfigHandler)({}, env);
+
+            // Assert.
+            expect(config?.server?.origin).to.equal(`http://localhost:${port}`);
+        });
         const exModuleIdResolutionTest = async (viteCmd: ConfigEnv['command'], source: string, expectedResult: string | null) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
