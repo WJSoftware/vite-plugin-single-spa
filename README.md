@@ -207,6 +207,7 @@ export type SingleSpaMifePluginOptions = {
     type?: 'mife';
     serverPort: number;
     spaEntryPoint?: string;
+    projectId?: string;
 };
 ```
 
@@ -220,10 +221,19 @@ the import map will usually point to the micro-frontend's entry file with a full
 `http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  It is very difficult to imagine a 
 `single-spa` project that works with dynamic ports.
 
-The last property, `spaEntryPoint`, has a default value of `src/spa.ts` and is used to specify the module that exports 
-all of the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If your entry module's file name 
+The property `spaEntryPoint` has a default value of `src/spa.ts` and is used to specify the module that exports all of 
+the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If your entry module's file name 
 differs, use this property to specify it.  Note that if your project is using a different file extension, you'll have 
 to specify this property just to change the file extension.
+
+At the bottom we see `projectId`.  This is necessary for CSS tracking.  In a `single-spa`-enabled application, there 
+will be (potentially) many micro-frontends coming and going in and out of the application's page.  The project ID is 
+used to name the CSS bundles during the micro-frontend building process.  Then, at runtime, this identifier is used to 
+discriminate among all the CSS link elements in the page to properly mount and unmount them.  If not provided, the 
+plug-in will use the project's name from `package.json`.  Make sure the project has a name, or provide a value for 
+this property.
+
+> **NOTE**:  The `projectId` value will be trimmed to 20 characters if a longer value is found/specified.
 
 ## Mounting and Unmounting CSS
 
