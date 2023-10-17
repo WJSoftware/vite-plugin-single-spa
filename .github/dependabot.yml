@@ -1,5 +1,5 @@
 version: 2
-updastes:
+updates:
   - package-ecosystem: "npm"
     directory: "/src"
     schedule:
