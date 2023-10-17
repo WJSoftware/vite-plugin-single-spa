@@ -112,27 +112,21 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          * @param maps Array of import maps that are merged together as a single map.
          */
         function buildImportMap(maps: Required<ImportMap>[]) {
-            const oriImportMap: Required<ImportMap> = Object.assign(
-                { imports: {}, scopes: {} },
-                ...maps,
-            );
-            return oriImportMap;
-            // return {
-            //     imports: {
-            //         ...oriImportMap.imports,
-            //         ...Object.keys(oriImportMap.imports).reduce(
-            //             (acc, imp) => ({
-            //                 ...acc,
-            //                 // [`${prefix}${imp}`]: oriImportMap.imports[imp],
-            //                 [`${imp}`]: oriImportMap.imports[imp],
-            //             }),
-            //             {},
-            //         ),
-            //     },
-            //     scopes: {
-            //         ...oriImportMap.scopes,
-            //     },
-            // };
+            const importMap: Required<ImportMap> = { imports: {}, scopes: {} };
+            for (let map of maps) {
+                for (let key of Object.keys(map.imports)) {
+                    importMap.imports[key] = map.imports[key];
+                }
+                if (map.scopes) {
+                    for (let key of Object.keys(map.scopes)) {
+                        importMap.scopes[key] = {
+                            ...importMap.scopes[key],
+                            ...map.scopes[key]
+                        }
+                    }
+                }
+            }
+            return importMap;
         }
 
         /**

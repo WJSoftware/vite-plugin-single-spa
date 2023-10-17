@@ -705,33 +705,13 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of importMapTestData) {
             it(`Should pick the contents of the specified file in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`, () => importMapTest(tc.propertyName, tc.viteCmd));
         }
-        const importMapTestMultiple = async (propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
+        const importMapTestMultiple = async (map1: ImportMap, map2: ImportMap, expectedMap: ImportMap, propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
             // Arrange.
             const fileNames = ['A.json', 'B.json'];
             const fileExists = (x: string) => fileNames.includes(x);
-            const importMapA = {
-                imports: {
-                    '@a/b': 'cd'
-                },
-                scopes: {
-                    pickyModule: {
-                        '@a/b': 'ef'
-                    }
-                }
-            };
-            const importMapB = {
-                imports: {
-                    '@b/c': 'de'
-                },
-                scopes: {
-                    pickyModule: {
-                        '@b/c': 'fg'
-                    }
-                }
-            };
             const importMaps: Record<string, ImportMap> = {
-                'A.json': importMapA,
-                'B.json': importMapB
+                'A.json': map1,
+                'B.json': map2
             };
             let fileRead: Record<string, boolean> = {};
             let fileReadCount = 0;
@@ -762,17 +742,80 @@ describe('vite-plugin-single-spa', () => {
                 expect(firstTag).to.not.equal(undefined);
                 expect(firstTag.tag).to.equal('script');
                 const parsedImportMap = JSON.parse(firstTag.children as string);
-                expect(parsedImportMap).to.be.deep.equal({
-                    ...importMapA,
-                    ...importMapB
-                });
+                expect(parsedImportMap).to.be.deep.equal(expectedMap);
             }
             else {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
             }
         };
-        for (let tc of importMapTestData) {
-            it(`Should pick the contents of all import maps specified in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`, () => importMapTestMultiple(tc.propertyName, tc.viteCmd));
+        const importMapTestMultipleData: {
+            map1: ImportMap,
+            map2: ImportMap,
+            expectedMap: ImportMap,
+            propertyName: Exclude<keyof ImportMapsOption, 'type'>,
+            viteCmd: ConfigEnv['command']
+        }[] = [
+                {
+                    map1: {
+                        imports: {
+                            '@a/b': 'cd'
+                        },
+                        scopes: {
+                            pickyModule: {
+                                '@c/d': 'ef'
+                            }
+                        }
+                    },
+                    map2: {
+                        imports: {
+                            '@c/d': 'ef'
+                        },
+                        scopes: {
+                            pickyModule: {
+                                '@e/f': 'gh'
+                            }
+                        }
+                    },
+                    expectedMap: {
+                        imports: {
+                            '@a/b': 'cd',
+                            '@c/d': 'ef'
+                        },
+                        scopes: {
+                            pickyModule: {
+                                '@c/d': 'ef',
+                                '@e/f': 'gh'
+                            }
+                        }
+                    },
+                    propertyName: 'dev',
+                    viteCmd: 'serve'
+                },
+                {
+                    map1: {
+                        imports: {
+                            '@a/b': 'cd'
+                        }
+                    },
+                    map2: {
+                        imports: {
+                            '@c/d': 'ef'
+                        }
+                    },
+                    expectedMap: {
+                        imports: {
+                            '@a/b': 'cd',
+                            '@c/d': 'ef'
+                        },
+                        scopes: {}
+                    },
+                    propertyName: 'build',
+                    viteCmd: 'build'
+                }
+            ];
+        for (let tc of importMapTestMultipleData) {
+            it(`Should pick the contents of all import maps specified in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`,
+                () => importMapTestMultiple(tc.map1, tc.map2, tc.expectedMap, tc.propertyName, tc.viteCmd));
         }
         const importMapTypeTest = async (importMapType: ImportMapsOption['type'], viteCmd: ConfigEnv['command']) => {
             const fileExists = (_x: string) => true;
