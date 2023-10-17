@@ -77,22 +77,34 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
         }
 
         /**
-         * Loads the import map file (JSON files) that is pertinent to the occasion.
+         * Loads the import map files (JSON files) that are pertinent to the occasion.
          * @param command Vite command (serve or build).
-         * @returns A promise that resolves with the file's text content; if the file doesn't exist then null is returned.
+         * @returns An array of string values, where each value is the content of one import map file.
          */
-        function loadImportMap(command: string) {
+        async function loadImportMaps(command: ConfigEnv['command']) {
             const cfg = config as SingleSpaRootPluginOptions;
+            let fileCfg = command === 'serve' ? cfg.importMaps?.dev : cfg.importMaps?.build;
             const defaultFile = fileExists('src/importMap.dev.json') ? 'src/importMap.dev.json' : 'src/importMap.json';
-            const mapFile = command === 'serve' ?
-                (cfg.importMaps?.dev ?? defaultFile) :
-                (cfg.importMaps?.build ?? 'src/importMap.json');
-            if (!fileExists(mapFile)) {
-                return null;
+            if (fileCfg === undefined || typeof fileCfg === 'string') {
+                const mapFile = command === 'serve' ?
+                    (fileCfg ?? defaultFile) :
+                    (fileCfg ?? 'src/importMap.json');
+                if (!fileExists(mapFile)) {
+                    return null;
+                }
+                const contents = await readFile(mapFile, {
+                    encoding: 'utf8'
+                }) as string;
+                return [contents];
             }
-            return readFile(mapFile, {
-                encoding: 'utf8'
-            });
+            else {
+                const fileContents: string[] = [];
+                for (let f of fileCfg) {
+                    const contents = await readFile(f, { encoding: 'utf8' }) as string;
+                    fileContents.push(contents);
+                }
+                return fileContents;
+            }
         }
 
         /**
@@ -104,22 +116,23 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 { imports: {}, scopes: {} },
                 ...maps,
             );
-            return {
-                imports: {
-                    ...oriImportMap.imports,
-                    ...Object.keys(oriImportMap.imports).reduce(
-                        (acc, imp) => ({
-                            ...acc,
-                            // [`${prefix}${imp}`]: oriImportMap.imports[imp],
-                            [`${imp}`]: oriImportMap.imports[imp],
-                        }),
-                        {},
-                    ),
-                },
-                scopes: {
-                    ...oriImportMap.scopes,
-                },
-            };
+            return oriImportMap;
+            // return {
+            //     imports: {
+            //         ...oriImportMap.imports,
+            //         ...Object.keys(oriImportMap.imports).reduce(
+            //             (acc, imp) => ({
+            //                 ...acc,
+            //                 // [`${prefix}${imp}`]: oriImportMap.imports[imp],
+            //                 [`${imp}`]: oriImportMap.imports[imp],
+            //             }),
+            //             {},
+            //         ),
+            //     },
+            //     scopes: {
+            //         ...oriImportMap.scopes,
+            //     },
+            // };
         }
 
         /**
@@ -182,10 +195,10 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          */
         async function rootIndexTransform(html: string) {
             const cfg = config as SingleSpaRootPluginOptions;
-            const importMapText = await loadImportMap(viteEnv.command) as string;
+            const importMapContents = await loadImportMaps(viteEnv.command);
             let importMap: Required<ImportMap> | undefined = undefined;
-            if (importMapText) {
-                importMap = buildImportMap([JSON.parse(importMapText)]);
+            if (importMapContents) {
+                importMap = buildImportMap(importMapContents.map(t => JSON.parse(t)));
             }
             const tags: HtmlTagDescriptor[] = [];
             if (importMap) {
