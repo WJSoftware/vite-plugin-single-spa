@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { pluginFactory } from '../src/plugin-factory.js';
 
-import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption } from "vite-plugin-single-spa";
+import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption, ImportMap } from "vite-plugin-single-spa";
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
 import type { PreserveEntrySignaturesOption, OutputOptions } from 'rollup';
 import { extensionModuleName } from '../src/ex-defs.js';
@@ -643,7 +643,7 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of defaultImportMapTestData) {
             it(`Should pick the contents of the default file "${tc.fileName}" if the file exists on ${tc.viteCmd} as the contents of the import map script.`, () => defaultImportMapTest(tc.fileName, tc.viteCmd));
         }
-        const importMapTest = async (propertyName: string, viteCmd: ConfigEnv['command']) => {
+        const importMapTest = async (propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
             // Arrange.
             const fileName = 'customImportMap.json';
             const fileExists = (x: string) => x === fileName;
@@ -667,8 +667,7 @@ describe('vite-plugin-single-spa', () => {
                 return Promise.resolve(JSON.stringify(importMap));
             }
             const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', importMaps: {} };
-            // @ts-ignore
-            pluginOptions.importMaps[propertyName] = fileName;
+            pluginOptions.importMaps![propertyName] = fileName;
             const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
             const env: ConfigEnv = { command: viteCmd, mode: 'development' };
             await (plugin.config as ConfigHandler)({}, env);
@@ -693,7 +692,7 @@ describe('vite-plugin-single-spa', () => {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
             }
         };
-        const importMapTestData: { propertyName: string, viteCmd: ConfigEnv['command'] }[] = [
+        const importMapTestData: { propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command'] }[] = [
             {
                 propertyName: 'dev',
                 viteCmd: 'serve'
@@ -705,6 +704,75 @@ describe('vite-plugin-single-spa', () => {
         ];
         for (let tc of importMapTestData) {
             it(`Should pick the contents of the specified file in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`, () => importMapTest(tc.propertyName, tc.viteCmd));
+        }
+        const importMapTestMultiple = async (propertyName: Exclude<keyof ImportMapsOption, 'type'>, viteCmd: ConfigEnv['command']) => {
+            // Arrange.
+            const fileNames = ['A.json', 'B.json'];
+            const fileExists = (x: string) => fileNames.includes(x);
+            const importMapA = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            const importMapB = {
+                imports: {
+                    '@b/c': 'de'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@b/c': 'fg'
+                    }
+                }
+            };
+            const importMaps: Record<string, ImportMap> = {
+                'A.json': importMapA,
+                'B.json': importMapB
+            };
+            let fileRead: Record<string, boolean> = {};
+            let fileReadCount = 0;
+            const readFile = (x: string, _opts: any) => {
+                if (fileNames.includes(x)) {
+                    fileRead[x] = true;
+                }
+                ++fileReadCount;
+                return Promise.resolve(JSON.stringify(importMaps[x]));
+            }
+            const pluginOptions: SingleSpaRootPluginOptions = { type: 'root', importMaps: {} };
+            pluginOptions.importMaps![propertyName] = fileNames;
+            const plugin = pluginFactory(readFile, fileExists)(pluginOptions);
+            const env: ConfigEnv = { command: viteCmd, mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(Object.keys(fileRead).length).to.equal(2);
+            expect(fileReadCount).to.equal(2);
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                const firstTag = xForm.tags[0];
+                expect(firstTag).to.not.equal(undefined);
+                expect(firstTag.tag).to.equal('script');
+                const parsedImportMap = JSON.parse(firstTag.children as string);
+                expect(parsedImportMap).to.be.deep.equal({
+                    ...importMapA,
+                    ...importMapB
+                });
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        };
+        for (let tc of importMapTestData) {
+            it(`Should pick the contents of all import maps specified in the "importMaps.${tc.propertyName}" configuration property on ${tc.viteCmd}.`, () => importMapTestMultiple(tc.propertyName, tc.viteCmd));
         }
         const importMapTypeTest = async (importMapType: ImportMapsOption['type'], viteCmd: ConfigEnv['command']) => {
             const fileExists = (_x: string) => true;

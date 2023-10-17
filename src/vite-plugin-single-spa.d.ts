@@ -12,7 +12,7 @@ declare module "vite-plugin-single-spa" {
      */
     export type ImportMap = {
         imports?: Record<string, string>;
-        scopes?: Record<string, string>;
+        scopes?: Record<string, Record<string, string>>;
     };
 
     /**
@@ -50,13 +50,13 @@ declare module "vite-plugin-single-spa" {
          */
         type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
         /**
-         * File name of the import map to be used while developing.
+         * File name or array of file names of the import map or maps to be used while developing.
          */
-        dev?: string;
+        dev?: string | string[];
         /**
-         * File name of the import map to be used while building.
+         * File name or array of file names of the import map or maps to be used while building.
          */
-        build?: string;
+        build?: string | string[];
     };
 
     /**

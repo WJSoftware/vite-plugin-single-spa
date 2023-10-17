@@ -17,9 +17,9 @@ npm i -D vite-plugin-single-spa
 ```
 
 > In reality, what is installed as development dependency is a matter of how you build your final product.  For 
-example, if you want to use `npm ci` to build the project, then you'll need all packages used by Vite's build command 
-to have been installed as regular dependencies.  It is up to you how you end up installing the package (dev or 
-regular).
+example, if you want to use `npm` with `--omit=dev` to build the project, then you'll need all packages used by Vite's 
+build command to have been installed as regular dependencies.  It is up to you how you end up installing the package 
+(dev or regular).
 
 Now, in `vite.config.ts`, import the `vitePluginSingleSpa` function from it.  It is the default export but it is also 
 a named export:
@@ -48,8 +48,8 @@ export default defineConfig({
 The options passed to the plug-in factory function determine the type of project (root or micro-frontend).  For 
 micro-frontend projects, the server port is required, while for root projects the type is required.
 
-Additionally for micro-frontend projects, the file `src/spa.ts (or js, jsx, tsx)` must be created.  This file becomes 
-the main export of the project and should export the `single-spa` lifecycle functions.
+Additionally for micro-frontend projects, the file `src/spa.ts/js/jsx/tsx` must be created.  This file becomes the 
+main export of the project and should export the `single-spa` lifecycle functions.
 
 ## single-spa Root Projects
 
@@ -69,8 +69,8 @@ export type SingleSpaRootPluginOptions = {
     type: 'root';
     importMaps?: {
         type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
-        dev?: string;
-        build?: string;
+        dev?: string | string[];
+        build?: string | string[];
     };
     imo?: boolean | string | (() => string);
     imoUi?: boolean | 'full' | 'popup' | 'list' | {
@@ -88,10 +88,10 @@ the import maps non-functional, at least for the native `importmap` type.  The s
 the import map script and the `import-map-overrides` package as first children of the `<head>` HTML element.
 
 The `imo` option is used to control the inclusion of `import-map-overrides`.  Set it to `false` to exclude it; set to 
-`true` to include its latest version from the **JSDelivr**.  However, production deployments should never let unknown 
+`true` to include its latest version from **JSDelivr**.  However, production deployments should never let unknown 
 versions of packages to be loaded without prior testing, so it really isn't good practice to just say "include the 
 latest version".  Instead, specify the desired package version as a string.  The current recommended version of 
-`import-map-overrides` is **v3.1.0**.
+`import-map-overrides` is **v3.1.0** (but always check for yourself).
 
 ```typescript
 vitePluginSingleSpa({
@@ -110,7 +110,7 @@ returns the package's URL.
 
 ```typescript
 vitePluginSingleSpa({
-type: 'root',
+    type: 'root',
     imo: () => `https://my.cdn.example.com/import-map-overrides@3.1.0`
 })
 ```
@@ -123,8 +123,8 @@ By default, the user interface will be configured to appear in the bottom right 
 presence of the `imo-ui` local storage variable.  If any of this is inconvenient, specify the value of `imoUi` as an 
 object with the `variant`, `buttonPos` and `localStorageKey` properties set to your liking.
 
-We finally reach the `importMaps` section of the options.  Use this section to specify file names and the import map 
-type.  The default behavior is to automatically import maps from the file `src/importMap.dev.json` whenever Vite runs 
+We finally reach the `importMaps` section of the options.  Use this section to specify the import map type and file 
+names.  The default behavior is to automatically import maps from the file `src/importMap.dev.json` whenever Vite runs 
 in `serve` mode (when you run the project with `npm run dev`), or the file `src/importMap.json` whenever vite runs in 
 `build` mode (when you run `npm run build`).  Note, however, that if you have no need to have different import maps, 
 then you can omit `src/importMap.dev.json` and just create `src/importMap.json`.
@@ -190,9 +190,49 @@ This is no longer the case as seen in the [caniuse](https://caniuse.com/?search=
 If you're confused about all this import map type thing, read all about this import map topic in the 
 [import-map-overrides](https://github.com/single-spa/import-map-overrides) website.
 
+#### Using More Import Map Files
+
+> Since **v0.3.0**
+
+In `single-spa` applications, it is common to need shared modules, and it so happens to be very practical to list them 
+as import map entries.  For example, one could have something like this:
+
+```json
+{
+    "imports": {
+        "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js",
+        "react": "https://cdn.jsdelivr.net/npm/react@18.2.0/+esm",
+        "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/+esm",
+        "@learnSspa/mifeA": "http://localhost:4101/src/spa.tsx"
+    }
+}
+```
+
+Because those shared entries (`vue`, `react`, `react-dom`) need to be specified for both Vite modes (`serve` and 
+`build`), the most practical thing is to have a third import map file that is used in both scenarios.  To support this 
+kind of import map construction, the properties `importMaps.dev` and `importMaps.build` can also accept an array of 
+string values to specify multiple file names.  If you opt for this option, there is no "default file by omission" and 
+you must specify all your import map files explicitly.
+
+Create 3 import map JSON files:  `src/importMap.json`, `src/importMap.dev.json` and `src/importMap.shared.json`.  Now 
+specify the import map files as an array:
+
+```typescript
+vitePluginSingleSpa({
+    type: 'root',
+    importMaps: {
+        dev: ['src/importMap.dev.json', 'src/importMap.shared.json'],
+        build: ['src/importMap.json', 'src/importMap.shared.json'],
+    }
+})
+```
+
+This is of course a mere suggestion.  Feel free to arrange your import maps any way you feel is best.  Two, three or 
+50 import map files.  Create import map files until your heart is content.
+
 ## single-spa Micro-Frontend Projects
 
-A micro-frontend project in `single-spa` is referred as a micro-frontend or a *parcel*.  Micro-frontends are the 
+A micro-frontend project in `single-spa` is referred to as a micro-frontend or a *parcel*.  Micro-frontends are the 
 ultimate goal:  Pieces of user interface living as entirely separate projects.
 
 ### Micro-Frontend Project Options
@@ -223,6 +263,8 @@ the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If
 differs, use this property to specify it.  Note that if your project is using a different file extension, you'll have 
 to specify this property just to change the file extension.
 
+> Since **v0.2.0**
+
 At the bottom we see `projectId`.  This is necessary for CSS tracking.  In a `single-spa`-enabled application, there 
 will be (potentially) many micro-frontends coming and going in and out of the application's page.  The project ID is 
 used to name the CSS bundles during the micro-frontend building process.  Then, at runtime, this identifier is used to 
@@ -233,6 +275,8 @@ this property.
 > **NOTE**:  The `projectId` value will be trimmed to 20 characters if a longer value is found/specified.
 
 ## Mounting and Unmounting CSS
+
+> Since **v0.2.0**
 
 Vite comes with magic that inserts a micro-frontend's CSS in the root project's index page when it is mounted.  One 
 more thing to love about Vite, for sure.  However, this is lost when the project is built.
@@ -269,6 +313,8 @@ React.
 
 ## Vite Environment Information
 
+> Since **v0.2.0**
+
 The same extension module that provides CSS lifecycle functions also provides basic information about the Vite 
 environment.  Especifically, it exports the `viteEnv` object which is described as:
 
@@ -302,7 +348,7 @@ understand how this plug-in works and the reasons behind its behavior.
 
 ## Roadmap
 
+- [x] Multiple import map files per mode (to support shared dependencies marked `external` in Vite)
 - [ ] Multiple `single-spa` entry points
 - [ ] Option to set development entry point
-- [ ] Multiple import map files per mode (to support shared dependencies marked `external` in Vite)
 - [ ] SvelteKit?
