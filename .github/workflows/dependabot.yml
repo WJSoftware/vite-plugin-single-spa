@@ -1,6 +1,0 @@
-name: Dependabot
-on:
-  pull_request_target:
-    types: [opened, reopened, synchronize]
-    branches: [main]
-    paths: ["package.json", "package-lock.json"]
