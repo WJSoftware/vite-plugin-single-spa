@@ -348,7 +348,7 @@ understand how this plug-in works and the reasons behind its behavior.
 
 ## Roadmap
 
-- [x] Multiple import map files per mode (to support shared dependencies marked `external` in Vite)
-- [ ] Multiple `single-spa` entry points
+- [x] Multiple import map files per Vite command (to support shared dependencies marked `external` in Vite)
+- [x] Multiple `single-spa` entry points
 - [ ] Option to set development entry point
 - [ ] SvelteKit?
