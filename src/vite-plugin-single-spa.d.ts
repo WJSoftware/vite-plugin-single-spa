@@ -28,9 +28,10 @@ declare module "vite-plugin-single-spa" {
          */
         serverPort: number;
         /**
-         * The path to the file that exports the single-spa lifecycle functions.
+         * The path to the file that exports the single-spa lifecycle functions, or multiple paths for multiple exports 
+         * in case parcels are being exported as well.
          */
-        spaEntryPoint?: string;
+        spaEntryPoints?: string | string[];
         /**
          * Unique identifier given to the project.  It is used to tag CSS assets so the cssLifecyle object in 
          * the automatic module "vite-plugin-single-spa/ex" can properly manage the CSS lifecycle.

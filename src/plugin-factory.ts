@@ -155,7 +155,13 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             const input: InputOption = {};
             let preserveEntrySignatures: PreserveEntrySignaturesOption;
             if (viteOpts.command === 'build') {
-                input['spa'] = (config as SingleSpaMifePluginOptions)?.spaEntryPoint ?? 'src/spa.ts';
+                let entryPoints = (config as SingleSpaMifePluginOptions)?.spaEntryPoints ?? 'src/spa.ts';
+                if (typeof entryPoints === 'string') {
+                    entryPoints = [entryPoints];
+                }
+                for (let ep of entryPoints) {
+                    input[path.parse(ep).name] = ep;
+                }
                 preserveEntrySignatures = 'exports-only';
             }
             else {
