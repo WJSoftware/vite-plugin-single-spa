@@ -243,7 +243,7 @@ The plug-in options available to micro-frontend projects are dictated by the fol
 export type SingleSpaMifePluginOptions = {
     type?: 'mife';
     serverPort: number;
-    spaEntryPoint?: string;
+    spaEntryPoints?: string | string[];
     projectId?: string;
 };
 ```
@@ -258,10 +258,15 @@ the import map will usually point to the micro-frontend's entry file with a full
 `http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  It is very difficult to imagine a 
 `single-spa` project that works with dynamic ports.
 
-The property `spaEntryPoint` has a default value of `src/spa.ts` and is used to specify the module that exports all of 
-the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If your entry module's file name 
-differs, use this property to specify it.  Note that if your project is using a different file extension, you'll have 
-to specify this property just to change the file extension.
+> Since **v0.4.0**
+
+The `spaEntryPoints` property has a default value of `src/spa.ts` and is used to specify all the files that export 
+`single-spa` modules (modules that export `bootstrap`, `mount` and `unmount`).  Most of the time, there is only one 
+such file (the one that exports the micro-frontend), but if the micro-frontend exposes parcels, those are specified 
+here as well.  If you need to specify more than one file, use an array of strings.
+
+The default file name is certainly handy, but it is opinionated:  It is a TypeScript file (the plug-in's author's 
+preference).  If your file name differs, even if only by file extension, use `spaEntryPoints` to specify it.
 
 > Since **v0.2.0**
 
