@@ -16,6 +16,33 @@ declare module "vite-plugin-single-spa" {
     };
 
     /**
+     * Plug-in debugging options.
+     */
+    export type DebuggingOptions = {
+        /**
+         * Logging options.
+         */
+        logging?: {
+            /**
+             * Log's file name.  If not provided, `'vpss.log'` will be used if any of the logging flags is set to true.
+             */
+            fileName?: string;
+            /**
+             * Logs detailed information about the generated JavaScript chunks.
+             */
+            chunks?: boolean;
+            /**
+             * Logs the incoming Vite configuration (the one calculated before this plug-in modifies it).
+             */
+            incomingConfig?: boolean;
+            /**
+             * Logs the configuration changes proposed by this plug-in.
+             */
+            config?: boolean;
+        }
+    };
+
+    /**
      * Defines the plugin options for Vite projects that are single-spa micro-frontentds.
      */
     export type SingleSpaMifePluginOptions = {
@@ -38,7 +65,7 @@ declare module "vite-plugin-single-spa" {
          * If not provided, the project's name (up to the first 20 letters) is used as identifier.
          */
         projectId?: string;
-    };
+    } & DebuggingOptions;
 
     /**
      * Defines the posssible options for import maps in root projects.
@@ -111,7 +138,7 @@ declare module "vite-plugin-single-spa" {
          * explicitly deactivated in configuration.
          */
         imoUi?: ImoUiVariant | ImoUiOption;
-    };
+    } & DebuggingOptions;
 
     /**
      * Defines the type for the plugin options object.

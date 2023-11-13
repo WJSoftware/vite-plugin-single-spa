@@ -6,6 +6,7 @@ import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption } from 'rollup';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption } from "vite-plugin-single-spa";
 import { extensionModuleName } from './ex-defs.js';
+import { closeLog, openLog, writeToLog } from './debug.js';
 
 /*
 NOTE:
@@ -42,6 +43,10 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
     const readFile = readFileFn ?? fs.readFile;
     const fileExists = fileExistsFn ?? existsSync;
     return (config: SingleSpaPluginOptions) => {
+        const lg = config.logging;
+        if (lg?.chunks || lg?.config || lg?.incomingConfig) {
+            openLog(lg?.fileName);
+        }
         let configFn: ((viteOpts: ConfigEnv) => UserConfig | Promise<UserConfig>) | undefined = mifeConfig;
         let htmlXformFn: (html: string) => IndexHtmlTransformResult | void | Promise<IndexHtmlTransformResult | void> = () => { return; };
         let viteEnv: ConfigEnv;
@@ -178,6 +183,9 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     }
                 }
             };
+            if (lg?.config) {
+                writeToLog('Config: %o', cfg);
+            }
             return cfg;
         }
 
@@ -257,11 +265,17 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
 
         return {
             name: 'vite-plugin-single-spa',
-            async config(_cfg, opts) {
+            async config(cfg, opts) {
                 viteEnv = opts;
                 cssModuleFileName = viteEnv.command === 'build' ? 'css.js' : 'no-css.js';
+                if (lg?.incomingConfig) {
+                    writeToLog('Incoming Config: %o', cfg);
+                }
                 if (configFn) {
                     return await configFn(opts);
+                }
+                if (viteEnv.command === 'serve') {
+                    closeLog();
                 }
                 return {};
             },
@@ -276,7 +290,26 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     return exModule = exModule ?? (await buildExModule());
                 }
             },
+            renderChunk: {
+                order: 'post',
+                handler(code, chunk, options, meta) {
+                    if (lg?.chunks) {
+                        writeToLog("Chunk Information");
+                        writeToLog("=================\n");
+                        writeToLog("======== %s ========", chunk.fileName);
+                        chunk.viteMetadata?.importedCss.forEach(css => {
+                            writeToLog('Imported CSS: %s', css);
+                        });
+                        writeToLog("chunk: %o", chunk);
+                        writeToLog("options: %o", options);
+                        writeToLog("meta: %o", meta);
+                    }
+                },
+            },
             generateBundle(_options, bundle, _isWrite) {
+                if (viteEnv.command === 'build') {
+                    closeLog();
+                }
                 for (let x in bundle) {
                     const entry = bundle[x];
                     if (entry.type === 'chunk') {
