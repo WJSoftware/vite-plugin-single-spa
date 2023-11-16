@@ -693,6 +693,51 @@ describe('vite-plugin-single-spa', () => {
             const entry = bundle['A.js'];
             expect(entry.code).to.equal(projectId);
         });
+        const spaEntryPointsTest = async (expects: Record<string, string>, inputs?: string | string[]) => {
+            // Arrange.
+            const readFile = (fileName: string, _opts: any) => {
+                const name = path.basename(fileName);
+                if (name === 'package.json') {
+                    return Promise.resolve(JSON.stringify(pkgJson));
+                }
+                return Promise.resolve('');
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444, spaEntryPoints: inputs });
+            const env: ConfigEnv = { command: 'build', mode: 'production' };
+
+            // Act.
+            const result = await (plugIn.config as ConfigHandler)({}, env);
+
+            // Assert.
+            expect(result).to.not.equal(undefined);
+            const resultingInput = result.build?.rollupOptions?.input;
+            expect(resultingInput).to.not.equal(undefined);
+            expect(resultingInput).to.deep.equal(expects);
+        }
+        const spaEntryPointsTestData: { inputs: undefined | string | string[]; expects: Record<string, string> }[] = [
+            {
+                inputs: undefined,
+                expects: {
+                    spa: 'src/spa.ts'
+                }
+            },
+            {
+                inputs: 'src/test.jsx',
+                expects: {
+                    test: 'src/test.jsx'
+                }
+            },
+            {
+                inputs: ['src/abc.ts', 'src/def.js'],
+                expects: {
+                    abc: 'src/abc.ts',
+                    def: 'src/def.js'
+                }
+            }
+        ];
+        for (let tc of spaEntryPointsTestData) {
+            it(`Should add the specified entry points as inputs for rollup build.  Inputs: ${tc.inputs}`, () => spaEntryPointsTest(tc.expects, tc.inputs));
+        }
     });
     describe('Root Configuration', () => {
         const configTest = async (viteCmd: ConfigEnv['command']) => {

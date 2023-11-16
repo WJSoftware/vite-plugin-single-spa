@@ -79,9 +79,10 @@ begin {
         Write-Verbose "Version upgrade was not specified.  The package's version will not be modified."
     }
     $path = Resolve-Path .\
-    if (Test-Path .\out) {
+    if (Test-Path .\out\) {
         Remove-Item -Path .\out -Recurse
     }
+    New-Item .\out -ItemType Directory
     if ($PSCmdlet.ShouldProcess($path, "TypeScript compilation")) {
         npx tsc
     }
@@ -95,10 +96,10 @@ begin {
     Copy-Item .\src\ex.d.ts .\out\ex\index.d.ts
     if (!$Publish -and -not $WhatIfPreference) {
         Write-Output "Running npm publish in dry run mode."
-        npm publish .\out\ --dry-run
+        npm publish .\out --dry-run
     }
     elseif ($PSCmdlet.ShouldProcess($path, "Publish NPM package")) {
-        npm publish .\out\
+        npm publish .\out
     }
     elseif ($WhatIfPreference) {
         Write-Verbose "NOTE: Running npm publish in dry run mode using sample data for illustration purposes only."
