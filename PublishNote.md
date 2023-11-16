@@ -14,3 +14,5 @@ micro-frontend.
 
 + The `cssLifecycle` object has been removed.  Use `cssLifecycleFactory` instead.
 + The `spaEntryPoint` property has been renamed to `spaEntryPoints`.
+
+---
