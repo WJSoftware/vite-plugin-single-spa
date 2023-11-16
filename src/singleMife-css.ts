@@ -4,7 +4,10 @@ let observer: MutationObserver | undefined;
 let vpssLinkEls: HTMLLinkElement[];
 let autoLinkEls: HTMLLinkElement[] = [];
 const projectId = '{vpss:PROJECT_ID}';
-const cssFiles = ['{vpss:CSS_FILE_LIST}'];
+const cssInjectedDictionary = '{vpss:CSS_MAP}';
+const cssMap: Record<string, string[]> = JSON.parse(cssInjectedDictionary);
+let base = import.meta.env.BASE_URL;
+base += base.endsWith('/') ? '' : '/';
 
 function isLinkElement(el: Node): el is HTMLLinkElement {
     return el.nodeName === 'LINK';
@@ -16,7 +19,7 @@ function observeHead() {
             if (m.addedNodes.length > 0) {
                 m.addedNodes.forEach(an => {
                     if (isLinkElement(an) && an.rel === 'stylesheet' && an.href.indexOf(`vpss(${projectId})`)) {
-                        (!an.getAttribute('data-vpss') ? vpssLinkEls : autoLinkEls).push(an);
+                        (an.getAttribute('data-vpss') ? vpssLinkEls : autoLinkEls).push(an);
                     }
                 });
             }
@@ -28,19 +31,24 @@ function observeHead() {
     return observer;
 }
 
-function bootstrap() {
+function cleanHeadElement(els?: HTMLLinkElement[]) {
+    els?.forEach(el => globalThis.document.head.removeChild(el));
+}
+
+function bootstrap(cssFiles: string[]) {
     observer?.disconnect();
     observer = observeHead();
-    vpssLinkEls?.forEach(el => globalThis.document.head.removeChild(el));
+    cleanHeadElement(vpssLinkEls);
+    cleanHeadElement(autoLinkEls);
     vpssLinkEls = [];
-    const base = import.meta.env.BASE_URL;
+    autoLinkEls = [];
     if (cssFiles.length === 0) {
         return Promise.resolve();
     }
     for (let css of cssFiles) {
         const el = globalThis.document.createElement('link');
         el.rel = 'stylesheet';
-        el.href = base + (base.endsWith('/') ? '' : '/') + css;
+        el.href = base + css;
         el.setAttribute('data-vpss', 'true');
         el.disabled = true;
         globalThis.document.head.appendChild(el);
@@ -48,7 +56,7 @@ function bootstrap() {
     return Promise.resolve();
 }
 
-function mount() {
+function mount(cssFiles: string[]) {
     if (cssFiles.length > 0) {
         for (let el of vpssLinkEls) {
             el.disabled = false;
@@ -60,7 +68,7 @@ function mount() {
     return Promise.resolve();
 }
 
-function unmount() {
+function unmount(cssFiles: string[]) {
     if (cssFiles.length > 0) {
         for (let el of vpssLinkEls) {
             el.disabled = true;
@@ -72,8 +80,11 @@ function unmount() {
     return Promise.resolve();
 }
 
-export const cssLifecycle = {
-    bootstrap,
-    mount,
-    unmount
+export function cssLifecycleFactory(entryPoint: string) {
+    const cssFiles = cssMap[entryPoint] ?? [];
+    return {
+        bootstrap: bootstrap.bind(null, cssFiles),
+        mount: mount.bind(null, cssFiles),
+        unmount: unmount.bind(null, cssFiles)
+    };
 };

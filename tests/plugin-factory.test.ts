@@ -5,13 +5,14 @@ import { pluginFactory } from '../src/plugin-factory.js';
 
 import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption, ImportMap } from "vite-plugin-single-spa";
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
-import type { PreserveEntrySignaturesOption, OutputOptions } from 'rollup';
+import type { PreserveEntrySignaturesOption, OutputOptions, RenderedChunk } from 'rollup';
 import { extensionModuleName } from '../src/ex-defs.js';
 import path from 'path';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
 type LoadHandler = (this: void, id: string) => Promise<string>;
+type RenderChunkHandler = { handler: (this: void, code: string, chunk: RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, RenderedChunk> }) => Promise<any> };
 type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => void;
 
 const viteCommands: ConfigEnv['command'][] = [
@@ -218,7 +219,7 @@ describe('vite-plugin-single-spa', () => {
                 it(`Should ${tc.text}positively identify the module ID "${tc.source}" on ${cmd}.`, () => exModuleIdResolutionTest(cmd, tc.source, tc.expectedResult));
             }
         }
-        const exModuleBuildingTest = async (viteCmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string) => {
+        const exModuleBuildingTest = async (viteCmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string, cssStrategy: SingleSpaMifePluginOptions['cssStrategy']) => {
             // Arrange.
             let expectedModuleRead = false;
             const moduleContent = 'abc - def';
@@ -233,7 +234,7 @@ describe('vite-plugin-single-spa', () => {
                 }
                 return Promise.resolve('');
             };
-            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444, cssStrategy });
             const env: ConfigEnv = { command: viteCmd, mode: 'development' };
             await (plugIn.config as ConfigHandler)({}, env);
 
@@ -244,30 +245,61 @@ describe('vite-plugin-single-spa', () => {
             expect(expectedModuleRead).to.equal(true);
             expect(moduleCode).to.contain(moduleContent);
         };
-        const exModuleBuildingTestData: { cmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string }[] = [
+        const exModuleBuildingTestData: { cmd: ConfigEnv['command'], moduleId: string, expectedModuleName: string, cssStrategy: SingleSpaMifePluginOptions['cssStrategy'] }[] = [
             {
                 cmd: 'build',
                 moduleId: extensionModuleName,
-                expectedModuleName: 'css.js'
-            },
-            {
-                cmd: 'serve',
-                moduleId: extensionModuleName,
-                expectedModuleName: 'no-css.js'
+                expectedModuleName: 'multiMife-css.js',
+                cssStrategy: 'multiMife'
             },
             {
                 cmd: 'build',
                 moduleId: extensionModuleName,
-                expectedModuleName: 'vite-env.js'
+                expectedModuleName: 'singleMife-css.js',
+                cssStrategy: 'singleMife'
             },
             {
                 cmd: 'serve',
                 moduleId: extensionModuleName,
-                expectedModuleName: 'vite-env.js'
+                expectedModuleName: 'no-css.js',
+                cssStrategy: 'multiMife'
+            },
+            {
+                cmd: 'serve',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'no-css.js',
+                cssStrategy: 'singleMife'
+            },
+            {
+                cmd: 'build',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'vite-env.js',
+                cssStrategy: 'multiMife'
+            },
+            {
+                cmd: 'build',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'vite-env.js',
+                cssStrategy: 'singleMife'
+            },
+            {
+                cmd: 'serve',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'vite-env.js',
+                cssStrategy: 'multiMife'
+            },
+            {
+                cmd: 'serve',
+                moduleId: extensionModuleName,
+                expectedModuleName: 'vite-env.js',
+                cssStrategy: 'singleMife'
             }
         ];
         for (let tc of exModuleBuildingTestData) {
-            it(`Should include the contents of module "${tc.expectedModuleName}" on ${tc.cmd} while loading module ID "${tc.moduleId}".`, () => exModuleBuildingTest(tc.cmd, tc.moduleId, tc.expectedModuleName));
+            it(
+                `Should include the contents of module "${tc.expectedModuleName}" on ${tc.cmd} for strategy ${tc.cssStrategy} while loading module ID "${tc.moduleId}".`,
+                () => exModuleBuildingTest(tc.cmd, tc.moduleId, tc.expectedModuleName, tc.cssStrategy)
+            );
         }
         const viteEnvValueReplacementTest = async (viteCmd: ConfigEnv['command'], mode: ConfigEnv['mode']) => {
             // Arrange.
@@ -313,7 +345,7 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of viteEnvValueReplacementTestData) {
             it(`Should replace the values of "viteEnv" appropriately on ${tc.cmd} with mode "${tc.mode}".`, () => viteEnvValueReplacementTest(tc.cmd, tc.mode));
         }
-        const cssFileNamesInsertionTest = async (bundle: Record<string, any>, bundleCodes: Record<string, string>) => {
+        const cssMapInsertionTest = async (chunks: RenderedChunk[], expectedMap: Record<string, string[]>) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -323,123 +355,292 @@ describe('vite-plugin-single-spa', () => {
             };
             const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
             const env: ConfigEnv = { command: 'build', mode: 'production' };
-            await (plugIn.config as ConfigHandler)({}, env);
-            for (let x in bundle) {
-                bundle[x].code = bundleCodes[x];
+            const meta: { chunks: Record<string, RenderedChunk>} = {
+                chunks: {}
+            };
+            for (let ch of chunks) {
+                meta.chunks[ch.fileName] = ch;
             }
+            await (plugIn.config as ConfigHandler)({}, env);
+            for (let ch of chunks) {
+                await (plugIn.renderChunk as RenderChunkHandler).handler('', ch, {}, meta);
+            }
+            const bundle = {
+                'a.js': {
+                    type: 'chunk',
+                    code: '"{vpss:CSS_MAP}"'
+                }
+            };
 
             // Act.
             (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
-            for (let x in bundle) {
-                const entry = bundle[x];
-                if (entry.type === 'chunk') {
-                    let cssFiles = '';
-                    entry.viteMetadata?.importedCss.forEach((css: string) => cssFiles += `,"${css}"`);
-                    if (cssFiles.length > 0) {
-                        cssFiles = cssFiles.substring(1);
-                    }
-                    expect(entry.code).to.contain(cssFiles);
-                }
-                else {
-                    expect(entry.code).to.equal(bundleCodes[x]);
-                }
-            }
+            const calculatedCssMap = JSON.parse(JSON.parse(bundle['a.js'].code));
+            expect(calculatedCssMap).to.deep.equal(expectedMap);
         };
-        const buildSet = (items: string[]) => new Set(items);
-        const cssFileNamesInsertionTestData: { bundle: Record<string, any>, bundleCodes: Record<string, string>, text: string }[] = [
+        const buildSet = (items?: string[]) => new Set(items);
+        const cssMapInsertionTestData: { chunks: Partial<RenderedChunk>[]; text: string; expectedMap: Record<string, string[]>; }[] = [
             {
-                bundle: {
-                    'a.js': {
-                        type: 'chunk',
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: [],
                         viteMetadata: {
-                            importedCss: buildSet(['a.css'])
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['A.css'])
                         }
                     }
-                },
-                bundleCodes: {
-                    'a.js': '"{vpss:CSS_FILE_LIST}"'
-                },
-                text: '1 chunk: 1 css'
+                ],
+                text: 'A[1]:  a',
+                expectedMap: {
+                    'A': ['A.css']
+                }
             },
             {
-                bundle: {
-                    'a.js': {
-                        type: 'chunk',
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: ['b.js'],
                         viteMetadata: {
-                            importedCss: buildSet(['a.css', 'b.css'])
-                        }
-                    }
-                },
-                bundleCodes: {
-                    'a.js': '"{vpss:CSS_FILE_LIST}"'
-                },
-                text: '1 chunk: 2 css'
-            },
-            {
-                bundle: {
-                    'a.js': {
-                        type: 'chunk',
-                        viteMetadata: {
-                            importedCss: buildSet(['a.css'])
+                            importedAssets: buildSet(),
+                            importedCss: buildSet()
                         }
                     },
-                    'b.js': {
-                        type: 'chunk',
+                    {
+                        name: 'b',
+                        fileName: 'b.js',
+                        isEntry: false,
+                        imports: [],
                         viteMetadata: {
-                            importedCss: buildSet(['d.css'])
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['b.css'])
                         }
                     }
-                },
-                bundleCodes: {
-                    'a.js': '"{vpss:CSS_FILE_LIST}"',
-                    'b.js': '"{vpss:CSS_FILE_LIST}"'
-                },
-                text: '2 chunks: 1 css, 1 css'
+                ],
+                text: 'A, b[1]:  A->b',
+                expectedMap: {
+                    'A': ['b.css']
+                }
             },
             {
-                bundle: {
-                    'a.js': {
-                        type: 'chunk',
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: ['b.js', 'c.js'],
                         viteMetadata: {
-                            importedCss: buildSet(['a.css'])
+                            importedAssets: buildSet(),
+                            importedCss: buildSet()
                         }
                     },
-                    'b.js': {
-                        type: 'chunk'
+                    {
+                        name: 'b',
+                        fileName: 'b.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['b.css'])
+                        }
+                    },
+                    {
+                        name: 'c',
+                        fileName: 'c.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['c.css'])
+                        }
                     }
-                },
-                bundleCodes: {
-                    'a.js': '"{vpss:CSS_FILE_LIST}"',
-                    'b.js': 'import abc from "abc";'
-                },
-                text: '2 chunks: 1 css, N/A'
+                ],
+                text: 'A, b[1], c[1]:  A->bc',
+                expectedMap: {
+                    'A': ['b.css', 'c.css']
+                }
             },
             {
-                bundle: {
-                    'a.js': {
-                        type: 'chunk',
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: ['b.js', 'c.js'],
                         viteMetadata: {
-                            importedCss: buildSet(['a.css'])
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['A.css'])
                         }
                     },
-                    'b.js': {
-                        type: 'chunk',
+                    {
+                        name: 'b',
+                        fileName: 'b.js',
+                        isEntry: false,
+                        imports: [],
                         viteMetadata: {
-                            importedCss: buildSet(['d.css', 'e.css'])
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['b.css'])
+                        }
+                    },
+                    {
+                        name: 'c',
+                        fileName: 'c.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['c.css'])
                         }
                     }
-                },
-                bundleCodes: {
-                    'a.js': '"{vpss:CSS_FILE_LIST}"',
-                    'b.js': '"{vpss:CSS_FILE_LIST}"'
-                },
-                text: '2 chunks: 1 css, 2 css'
+                ],
+                text: 'A[1], b[1], c[1]:  A->bc',
+                expectedMap: {
+                    'A': ['A.css', 'b.css', 'c.css']
+                }
             },
-        ]
-        for (let tc of cssFileNamesInsertionTestData) {
-            it(`Should insert the list of CSS bundles of chunks: ${tc.text}`, () => cssFileNamesInsertionTest(tc.bundle, tc.bundleCodes));
+            {
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: ['b.js', 'c.js'],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['A.css'])
+                        }
+                    },
+                    {
+                        name: 'b',
+                        fileName: 'b.js',
+                        isEntry: false,
+                        imports: ['c.js'],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['b.css'])
+                        }
+                    },
+                    {
+                        name: 'c',
+                        fileName: 'c.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['c.css'])
+                        }
+                    }
+                ],
+                text: 'A[1], b[1], c[1]:  A->bc, b->c',
+                expectedMap: {
+                    'A': ['A.css', 'b.css', 'c.css']
+                }
+            },
+            {
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: ['b.js', 'c.js'],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['A.css'])
+                        }
+                    },
+                    {
+                        name: 'b',
+                        fileName: 'b.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['b.css'])
+                        }
+                    },
+                    {
+                        name: 'c',
+                        fileName: 'c.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['c.css'])
+                        }
+                    },
+                    {
+                        name: 'd',
+                        fileName: 'd.js',
+                        isEntry: false,
+                        imports: ['c.js'],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet()
+                        }
+                    }
+                ],
+                text: 'A[1], b[1], c[1], d[1]:  A->bc',
+                expectedMap: {
+                    'A': ['A.css', 'b.css', 'c.css']
+                }
+            },
+            {
+                chunks: [
+                    {
+                        name: 'A',
+                        fileName: 'A.js',
+                        isEntry: true,
+                        imports: ['b.js', 'c.js'],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['A.css'])
+                        }
+                    },
+                    {
+                        name: 'b',
+                        fileName: 'b.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['b.css'])
+                        }
+                    },
+                    {
+                        name: 'c',
+                        fileName: 'c.js',
+                        isEntry: false,
+                        imports: [],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['c.css'])
+                        }
+                    },
+                    {
+                        name: 'P',
+                        fileName: 'P.js',
+                        isEntry: true,
+                        imports: ['c.js'],
+                        viteMetadata: {
+                            importedAssets: buildSet(),
+                            importedCss: buildSet(['P.css'])
+                        }
+                    }
+                ],
+                text: 'A[1], b[1], c[1], P[1]:  A->bc, P->c',
+                expectedMap: {
+                    'A': ['A.css', 'b.css', 'c.css'],
+                    'P': ['P.css', 'c.css']
+                }
+            },
+        ];
+        for (let tc of cssMapInsertionTestData) {
+            it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks as RenderedChunk[], tc.expectedMap));
         }
         it("Should insert the the package's name in the chunks that require it.", async () => {
             // Arrange.
@@ -453,7 +654,7 @@ describe('vite-plugin-single-spa', () => {
             const env: ConfigEnv = { command: 'build', mode: 'production' };
             await (plugIn.config as ConfigHandler)({}, env);
             const bundle = {
-                'a.js': {
+                'A.js': {
                     type: 'chunk',
                     code: '{vpss:PROJECT_ID}'
                 }
@@ -463,7 +664,7 @@ describe('vite-plugin-single-spa', () => {
             (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
-            const entry = bundle['a.js'];
+            const entry = bundle['A.js'];
             expect(entry.code).to.equal(pkgJson.name);
         });
         it("Should insert the the specified project ID in the chunks that require it.", async () => {
@@ -479,7 +680,7 @@ describe('vite-plugin-single-spa', () => {
             const env: ConfigEnv = { command: 'build', mode: 'production' };
             await (plugIn.config as ConfigHandler)({}, env);
             const bundle = {
-                'a.js': {
+                'A.js': {
                     type: 'chunk',
                     code: '{vpss:PROJECT_ID}'
                 }
@@ -489,7 +690,7 @@ describe('vite-plugin-single-spa', () => {
             (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
-            const entry = bundle['a.js'];
+            const entry = bundle['A.js'];
             expect(entry.code).to.equal(projectId);
         });
     });
