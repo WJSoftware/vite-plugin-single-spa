@@ -23,5 +23,5 @@ declare module 'vite-plugin-single-spa/ex' {
     /**
      * single-spa CSS lifecycle object containing lifecycle functions that mount and unmount micro-frontend CSS.
      */
-    export const cssLifecycle: LifeCycles;
+    export const cssLifecycleFactory: (entryPoint: string) => LifeCycles;
 }

@@ -2,15 +2,17 @@
 
 ## Changelog
 
-### v0.3.1
+### v0.4.0
 
-+ Fix import maps merge logic.
++ Support for multiple entry point files.
++ Support for multiple `single-spa` exports (in one or multiple files), or multiple instances of the same parcel or 
+micro-frontend.
++ Major change in CSS Mounting.  Be sure to read about it.
++ Logging options (not documented, but Intellisense should reveal them).
 
-### v0.3.0
+#### BREAKING CHANGES
 
-+ **NEW**:  Support multiple import map files per Vite mode.
++ The `cssLifecycle` object has been removed.  Use `cssLifecycleFactory` instead.
++ The `spaEntryPoint` property has been renamed to `spaEntryPoints`.
 
-### v0.2.0
-
-+ Support for split CSS (happens when lazy loading components).
-+ Asset serving while in serve mode!
+---

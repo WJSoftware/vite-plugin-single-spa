@@ -16,7 +16,34 @@ declare module "vite-plugin-single-spa" {
     };
 
     /**
-     * Defines the plugin options for Vite projects that are single-spa micro-frontentds.
+     * Plug-in debugging options.
+     */
+    export type DebuggingOptions = {
+        /**
+         * Logging options.
+         */
+        logging?: {
+            /**
+             * Log's file name.  If not provided, `'vpss.log'` will be used if any of the logging flags is set to true.
+             */
+            fileName?: string;
+            /**
+             * Logs detailed information about the generated JavaScript chunks.
+             */
+            chunks?: boolean;
+            /**
+             * Logs the incoming Vite configuration (the one calculated before this plug-in modifies it).
+             */
+            incomingConfig?: boolean;
+            /**
+             * Logs the configuration changes proposed by this plug-in.
+             */
+            config?: boolean;
+        }
+    };
+
+    /**
+     * Defines the plugin options for Vite projects that are single-spa micro-frontends.
      */
     export type SingleSpaMifePluginOptions = {
         /**
@@ -28,25 +55,46 @@ declare module "vite-plugin-single-spa" {
          */
         serverPort: number;
         /**
-         * The path to the file that exports the single-spa lifecycle functions.
+         * The path to the file that exports the single-spa lifecycle functions, or multiple paths for multiple exports 
+         * in case parcels are being exported as well.
          */
-        spaEntryPoint?: string;
+        spaEntryPoints?: string | string[];
         /**
-         * Unique identifier given to the project.  It is used to tag CSS assets so the cssLifecyle object in 
-         * the automatic module "vite-plugin-single-spa/ex" can properly manage the CSS lifecycle.
+         * Unique identifier given to the project.  It is used to tag CSS assets so the cssLifecyle objects in the 
+         * automatic module `vite-plugin-single-spa/ex` can properly identify the CSS resources associated to this 
+         * project.
          * 
-         * If not provided, the project's name (up to the first 20 letters) is used as identifier.
+         * If not provided, the project's name (up to the first 20 letters) from `package.json` is used as identifier.
          */
         projectId?: string;
-    };
+        /**
+         * Specify the strategy to use by CSS lifecycle objects created with cssLifecycleFactory.  If not specified, 
+         * the default value is `singleMife`.
+         * 
+         * Use `singleMife` for single-spa micro-frontend projects that only export a single lifecycle object.  Use 
+         * `multiMife` for single-spa micro-frontend projects that exports more than one lifecycle object, either from 
+         * a single entry point, or from multiple entry points, such as a project that exports parcels, or a 
+         * micro-frontend and one or more parcels.
+         * 
+         * Also use `multiMife` for single lifecycle exports if you intend to mount multiple copies of it 
+         * simultaneously.
+         * 
+         * **WARNING**:  The single-spa library is not designed to mount multiple copies of the same micro-frontent or 
+         * parcel, so be forewarned that the attempt may very well fail.  We recommend to only attempt to load 
+         * multiple instances of **parcel** objects, not micro-frontends.  If you need to duplicate an entire 
+         * micro-frontend, you'll be better off programming it as if it were a parcel and handle the mounting and 
+         * unmounting yourself or through a proxy micro-frontend.
+         */
+        cssStrategy?: 'singleMife' | 'multiMife';
+    } & DebuggingOptions;
 
     /**
      * Defines the posssible options for import maps in root projects.
      */
     export type ImportMapsOption = {
         /**
-         * Type of importmap.  The valid values are 'importmap', 'overridable-importmap', 'systemjs-importmap' and 
-         * 'importmap-shim'.
+         * Type of importmap.  The valid values are `'importmap'`, `'overridable-importmap'`, `'systemjs-importmap'` 
+         * and `'importmap-shim'`.
          */
         type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
         /**
@@ -60,8 +108,8 @@ declare module "vite-plugin-single-spa" {
     };
 
     /**
-     * Defines the list of possible variants for the import-map-overrides user interface.  The Boolean value true is 
-     * equivalent to the string 'full'.
+     * Defines the list of possible variants for the import-map-overrides user interface.  The Boolean value `true` is 
+     * equivalent to the string `'full'`.
      */
     export type ImoUiVariant = boolean | 'full' | 'popup' | 'list';
 
@@ -70,16 +118,16 @@ declare module "vite-plugin-single-spa" {
      */
     export type ImoUiOption = {
         /**
-         * Desired variant of the user interface.  If not specified, the default value is 'full'.
+         * Desired variant of the user interface.  If not specified, the default value is `'full'`.
          */
         variant?: ImoUiVariant;
         /**
-         * Desired button position.  If not specified, the default value is 'bottom-right'.
+         * Desired button position.  If not specified, the default value is `'bottom-right'`.
          */
         buttonPos?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
         /**
          * Local storage key used to control the visibility of the import-map-overrides user interface.  If not 
-         * specified, the defualt value is "imo-ui".
+         * specified, the defualt value is `'imo-ui'`.
          */
         localStorageKey?: string;
     };
@@ -97,12 +145,12 @@ declare module "vite-plugin-single-spa" {
          */
         importMaps?: ImportMapsOption;
         /**
-         * Controls the inclusion of the import-map-overrides package.  If set to true, or not specified at all, 
+         * Controls the inclusion of the import-map-overrides package.  If set to `true`, or not specified at all, 
          * import-map-overrides will be included using the package's latest version.  In order to include a specific 
-         * version, specify the version as a string (for example, '2.4.2').
+         * version, specify the version as a string (for example, `'2.4.2'`).
          * 
-         * The package is served using the JSDelivr network; to use a different souce specify a function that returns 
-         * the package's full URL as a string.
+         * The package is served using the JSDelivr network; to use a different source, specify a function that 
+         * returns the package's full URL as a string.
          */
         imo?: boolean | string | (() => string);
         /**
@@ -111,7 +159,7 @@ declare module "vite-plugin-single-spa" {
          * explicitly deactivated in configuration.
          */
         imoUi?: ImoUiVariant | ImoUiOption;
-    };
+    } & DebuggingOptions;
 
     /**
      * Defines the type for the plugin options object.

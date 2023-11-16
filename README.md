@@ -243,8 +243,9 @@ The plug-in options available to micro-frontend projects are dictated by the fol
 export type SingleSpaMifePluginOptions = {
     type?: 'mife';
     serverPort: number;
-    spaEntryPoint?: string;
+    spaEntryPoints?: string | string[];
     projectId?: string;
+    cssStrategy?: 'singleMife' | 'multiMife';
 };
 ```
 
@@ -258,40 +259,49 @@ the import map will usually point to the micro-frontend's entry file with a full
 `http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  It is very difficult to imagine a 
 `single-spa` project that works with dynamic ports.
 
-The property `spaEntryPoint` has a default value of `src/spa.ts` and is used to specify the module that exports all of 
-the `single-spa`'s lifecycle functions (`bootstrap`, `mount` and `unmount`).  If your entry module's file name 
-differs, use this property to specify it.  Note that if your project is using a different file extension, you'll have 
-to specify this property just to change the file extension.
+> Since **v0.4.0**
 
-> Since **v0.2.0**
+The `spaEntryPoints` property has a default value of `src/spa.ts` and is used to specify all the files that export 
+`single-spa` modules (modules that export `bootstrap`, `mount` and `unmount`).  Most of the time, there is only one 
+such file (the one that exports the micro-frontend), but if the micro-frontend exposes parcels, those are specified 
+here as well.  If you need to specify more than one file, use an array of strings.
 
-At the bottom we see `projectId`.  This is necessary for CSS tracking.  In a `single-spa`-enabled application, there 
-will be (potentially) many micro-frontends coming and going in and out of the application's page.  The project ID is 
-used to name the CSS bundles during the micro-frontend building process.  Then, at runtime, this identifier is used to 
-discriminate among all the CSS link elements in the page to properly mount and unmount them.  If not provided, the 
-plug-in will use the project's name from `package.json`.  Make sure the project has a name, or provide a value for 
-this property.
+The default file name is certainly handy, but it is opinionated:  It is a TypeScript file (the plug-in's author's 
+preference).  If your file name differs, even if only by file extension, use `spaEntryPoints` to specify it.
+
+> `projectId`:  Since **v0.2.0**; `cssStrategy`:  Since **v0.4.0**
+
+At the bottom we see `projectId` and `cssStrategy`.  These are necessary for CSS mounting and unmounting.  In a 
+`single-spa`-enabled application, there will be (potentially) many micro-frontends coming and going in and out of the 
+application's page.  The project ID is used to name the CSS bundles during the micro-frontend building process.  Then, 
+at runtime, this identifier is used to discriminate among all the CSS link elements in the page to properly mount and 
+unmount them.  If not provided, the plug-in will use the project's name from `package.json`.  Make sure the project 
+has a name, or provide a value for this property.
 
 > **NOTE**:  The `projectId` value will be trimmed to 20 characters if a longer value is found/specified.
 
+The `cssStrategy` has to do with what you, the developer, want to do with the exported micro-frontend/parcel.  Read 
+the following section to understand this fully.
+
 ## Mounting and Unmounting CSS
 
-> Since **v0.2.0**
+> Since **v0.4.0**
 
-Vite comes with magic that inserts a micro-frontend's CSS in the root project's index page when it is mounted.  One 
-more thing to love about Vite, for sure.  However, this is lost when the project is built.
+> **IMPORTANT**:  CSS lifecycle logic has been completely replaced by a new algorithm as of **v0.4.0**.  The previous 
+> `cssLifecycle` object is no longer available, and in its stead you can import the `cssLifecycleFactory` function.
 
 This plug-in provides an extension module that provides ready-to-use `single-spa` lifecycle functions for the bundled 
-CSS.  It is very simple to use.  The following is an example of the spa entry file `src/spa.tsx` of a Vite + React 
+CSS.  It is very simple to use.  The following is an example of the spa entry file `src/spa.tsx` of a *Vite + React* 
 project created with `npm create vite@latest`:
 
 ```typescript
+// IMPORTANT:  Because file is named spa.tsx, 'spa' must be passed to the call to cssLifecycleFactory.
 import React from 'react';
 import ReactDOMClient from 'react-dom/client';
 // @ts-ignore
 import singleSpaReact from 'single-spa-react';
 import App from './App';
-import { cssLifecycle } from 'vite-plugin-single-spa/ex';
+import { cssLifecycleFactory } from 'vite-plugin-single-spa/ex';
 
 const lc = singleSpaReact({
     React,
@@ -301,15 +311,53 @@ const lc = singleSpaReact({
         return <div>Error: {err}</div>
     }
 });
-
-export const bootstrap = [cssLifecycle.bootstrap, lc.bootstrap];
-export const mount = [cssLifecycle.mount, lc.mount];
-export const unmount = [cssLifecycle.unmount, lc.unmount];
+const cssLc = cssLifecycleFactory('spa');
+export const bootstrap = [cssLc.bootstrap, lc.bootstrap];
+export const mount = [cssLc.mount, lc.mount];
+export const unmount = [cssLc.unmount, lc.unmount];
 ```
 
-All you have to do to harness this functionality is to import `cssLifecycle` from the extension module named 
-`vite-plugin-single-spa/ex`, and return the functions as shown above.  This should work for any framework, not just 
-React.
+The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
+is very important that the name passed to the factory coincides *exactly* with the file name (minus the extension).
+
+The object created by the factory (in the example, stored in the `cssLc` variable), can and should be used for every 
+exported/created `single-spa` lifecycle object.
+
+### CSS Strategy
+
+The `cssLifecycleFactory` function covers both CSS strategies (`singleMife` and `multiMife`).
+
+This new CSS mounting algorithm supports multiple SPA entry points, with single or multiple exports per entry point, 
+and mixing micro-frontends with parcels in the same project should be possible.  If you intend to either mount 
+multiple instances of the same parcel or micro-frontend, or export more than one `single-spa` lifecycle object, you 
+**must** set the options' property `cssStrategy` to `multiMife`.
+
+If, however, your project simply exports a single micro-frontend or a single parcel that doesn't expect to be mounted 
+multiple times, then `cssStrategy` can be set to `singleMife`, which is the default value for this property.
+
+### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
+
+While an incredible library, `single-spa` was not designed to support the mounting of more than one instance of a 
+micro-frontend simultaneously, but some of us like this idea.  This CSS mounting algorithm pretend to support as much 
+as possible this scenario, as well as the mounting of multiple instances of the same parcel.  However, `single-spa` is 
+not really prepared for this, so do this at your own risk.
+
+Speaking of which, there is a bug in the `singleSpaSvelte()` function exported by the `single-spa-svelte` NPM package 
+that prevents exporting the way `single-spa` recommends.  Detailed information can be found in 
+[this blog post](https://webjose.hashnode.dev/single-spa-parcels-and-vite-plugin-single-spa) or in the 
+[logged issue at GitHub](https://github.com/single-spa/single-spa-svelte/issues/28).  The blog post and the issue were 
+written prior to the existence of `vite-plugin-single-spa` **v0.4.0**, so make the necessary changes in the proposed 
+workaround.
+
+While I haven't tested every helper for every framework/library, there is the possibility that the bug found in the 
+`single-spa-svelte` package may exist in others, in which case the factory workaround may work for those too.
+
+### Why You Must Choose the CSS Strategy
+
+The new algorithm is robust and seems to work just fine under the conditions set by the `singleMife` strategy, but 
+there is a price to pay:  This new algorithm is incompatible with the idea of using `single-spa`'s `unloadApplication` 
+for the purposes of HMR.  In order to allow people to keep the possibility of using `unloadApplication`, the user can 
+choose the `singleMife` strategy to keep this HMR ability.
 
 ## Vite Environment Information
 
@@ -330,8 +378,8 @@ The `serving` property will be true if the project is being served by Vite in `s
 be true if the project is being run after being built.  The `mode` property is just the mode used when Vite was run, 
 and by default is the string `development` for `serve` mode, and `production` for builds.
 
-> Unlike `cssLifecycles` which is only useful to micro-frontend projects, `viteEnv` is available to root projects as 
-well.
+> Unlike `cssLifecycleFactory` which is only useful to micro-frontend projects, `viteEnv` is available to root 
+projects as well.
 
 To make use of it for whatever purpose, import it:
 
@@ -348,7 +396,9 @@ understand how this plug-in works and the reasons behind its behavior.
 
 ## Roadmap
 
-- [x] Multiple import map files per mode (to support shared dependencies marked `external` in Vite)
-- [ ] Multiple `single-spa` entry points
-- [ ] Option to set development entry point
+- [x] Multiple import map files per Vite command (to support shared dependencies marked `external` in Vite)
+- [x] Single-SPA parcels
+- [x] Multiple `single-spa` entry points
+- [x] Logging options
+- [ ] Option to set development entry point? (there might be a simple solution)
 - [ ] SvelteKit?
