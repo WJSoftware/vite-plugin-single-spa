@@ -399,5 +399,6 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Multiple import map files per Vite command (to support shared dependencies marked `external` in Vite)
 - [x] Single-SPA parcels
 - [x] Multiple `single-spa` entry points
-- [ ] Option to set development entry point
+- [x] Logging options
+- [ ] Option to set development entry point? (there might be a simple solution)
 - [ ] SvelteKit?
