@@ -84,7 +84,7 @@ begin {
     }
     New-Item .\out -ItemType Directory
     if ($PSCmdlet.ShouldProcess($path, "TypeScript compilation")) {
-        npx tsc
+        Invoke-Call { npx tsc }
     }
     Copy-Item .\src\vite-plugin-single-spa.d.ts .\out
     Copy-Item .\src\package.json .\out
