@@ -295,7 +295,8 @@ CSS.  It is very simple to use.  The following is an example of the spa entry fi
 project created with `npm create vite@latest`:
 
 ```typescript
-// IMPORTANT:  Because file is named spa.tsx, 'spa' must be passed to the call to cssLifecycleFactory.
+// IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
+// must be passed to the call to cssLifecycleFactory.
 import React from 'react';
 import ReactDOMClient from 'react-dom/client';
 // @ts-ignore
@@ -316,6 +317,9 @@ export const bootstrap = [cssLc.bootstrap, lc.bootstrap];
 export const mount = [cssLc.mount, lc.mount];
 export const unmount = [cssLc.unmount, lc.unmount];
 ```
+
+> **NOTE**:  To obtain Intellisense autocompletion with the variable `cssLc` above, install `single-spa` as a DEV 
+> dependency (`npm i -D single-spa`).
 
 The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
 is very important that the name passed to the factory coincides *exactly* with the file name (minus the extension).
@@ -400,5 +404,5 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Single-SPA parcels
 - [x] Multiple `single-spa` entry points
 - [x] Logging options
-- [ ] Option to set development entry point? (there might be a simple solution)
+- [ ] Option to set development entry point? (there might be a simpler solution)
 - [ ] SvelteKit?
