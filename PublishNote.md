@@ -2,6 +2,10 @@
 
 ## Changelog
 
+### v0.4.1
+
++ Updated Vite peer dependency to also accept Vite v5.0.
+
 ### v0.4.0
 
 + Support for multiple entry point files.

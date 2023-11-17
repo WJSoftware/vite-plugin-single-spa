@@ -29,7 +29,7 @@
   },
   "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
   "peerDependencies": {
-    "vite": "^4.4.6",
+    "vite": "^4.4.6 || ^5.0.0",
     "single-spa": "^5.9.5"
   }
 }
