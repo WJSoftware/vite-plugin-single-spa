@@ -32,7 +32,13 @@ export function writeToLog(formatString: string, ...restArgs: any[]) {
  * Closes the vite-plugin-single-spa log file.
  */
 export function closeLog() {
-    stream?.end();
-    stream?.close();
-    stream = undefined;
+    return new Promise<void>((rslv, _rjct) => {
+        if (!stream) {
+            rslv();
+        }
+        stream?.end(() => {
+            rslv();
+            stream = undefined;
+        });
+    });
 }
