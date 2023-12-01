@@ -2,6 +2,15 @@
 
 ## Changelog
 
+## v0.5.1
+
++ Support for Vite v5.0
++ Corrected the JsDoc for `cssLifecycleFactory`.
++ Added `exports` field to package.json for better Intellisense (requires TypeScript v4.7 or better).  Now VS Code 
+will correctly autocomplete when you start typing `import csslifec` (will autocomplete to 
+`import { cssLifecycleFactory } from 'vite-plugin-single-spa/ex`).  The same goes for `import viteen`.
++ Changed the return type of `cssLifecycleFactory` to be explicit that it does **not** provide the `update` function.
+
 ### v0.4.0
 
 + Support for multiple entry point files.

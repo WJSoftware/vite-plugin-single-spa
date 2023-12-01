@@ -1,5 +1,5 @@
 declare module 'vite-plugin-single-spa/ex' {
-    import type { LifeCycles } from "single-spa";
+    import type { LifeCycleFn } from "single-spa";
 
     /**
      * Vite environment object with information about how Vite is running or ran.
@@ -21,7 +21,19 @@ declare module 'vite-plugin-single-spa/ex' {
     };
 
     /**
-     * single-spa CSS lifecycle object containing lifecycle functions that mount and unmount micro-frontend CSS.
+     * Factory function that creates a `single-spa` CSS lifecycle object that manages the CSS files associated with 
+     * the specified entry point.
+     * 
+     * Note that there is no need to call this multiple times if the entry point is the same.  In other words:  The 
+     * returned object can be used for the lifecycles of many `single-spa` micro-frontends/parcels as long as they are 
+     * exported from the same entry point file.
+     * @param entryPoint Name of the entry point that dictates which CSS files the CSS lifecycle object will be 
+     * managing.
+     * @returns The `single-spa` lifecycle object capable of managing the entry point's CSS files.
      */
-    export const cssLifecycleFactory: (entryPoint: string) => LifeCycles;
+    export function cssLifecycleFactory(entryPoint: string): {
+        bootstrap: LifeCycleFn<{}>;
+        mount: LifeCycleFn<{}>;
+        unmount: LifeCycleFn<{}>;
+    };
 }
