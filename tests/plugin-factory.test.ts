@@ -345,6 +345,43 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of viteEnvValueReplacementTestData) {
             it(`Should replace the values of "viteEnv" appropriately on ${tc.cmd} with mode "${tc.mode}".`, () => viteEnvValueReplacementTest(tc.cmd, tc.mode));
         }
+        it('Should not throw any errors if there are imported chunks that are not found in "meta".', async () => {
+            // Arrange.
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+            const env: ConfigEnv = { command: 'build', mode: 'production' };
+            const chunk = {
+                name: 'A',
+                fileName: 'A.js',
+                isEntry: true,
+                imports: ['react'],
+                viteMetadata: {
+                    importedAssets: buildSet(),
+                    importedCss: buildSet(['A.css'])
+                }
+            };
+            const meta: { chunks: Record<string, RenderedChunk> } = {
+                chunks: {}
+            };
+            await (plugIn.config as ConfigHandler)({}, env);
+            
+            // Act.
+            let caughtError = false;
+            try {
+                await (plugIn.renderChunk as RenderChunkHandler).handler('', chunk as RenderedChunk, {}, meta);
+            }
+            catch (err) {
+                caughtError = true;
+            }
+
+            // Assert.
+            expect(caughtError).to.equal(false);
+        });
         const cssMapInsertionTest = async (chunks: RenderedChunk[], expectedMap: Record<string, string[]>) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
@@ -355,7 +392,7 @@ describe('vite-plugin-single-spa', () => {
             };
             const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
             const env: ConfigEnv = { command: 'build', mode: 'production' };
-            const meta: { chunks: Record<string, RenderedChunk>} = {
+            const meta: { chunks: Record<string, RenderedChunk> } = {
                 chunks: {}
             };
             for (let ch of chunks) {

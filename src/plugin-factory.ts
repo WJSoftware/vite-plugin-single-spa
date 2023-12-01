@@ -280,7 +280,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     return await configFn(opts);
                 }
                 if (viteEnv.command === 'serve') {
-                    closeLog();
+                    await closeLog();
                 }
                 return {};
             },
@@ -297,44 +297,50 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             },
             renderChunk: {
                 order: 'post',
-                handler(_code, chunk, options, meta) {
-                    if (lg?.chunks) {
-                        writeToLog("Chunk Information");
-                        writeToLog("=================\n");
-                        writeToLog("======== %s ========", chunk.fileName);
-                        chunk.viteMetadata?.importedCss.forEach(css => {
-                            writeToLog('Imported CSS: %s', css);
-                        });
-                        writeToLog("chunk: %o", chunk);
-                        writeToLog("options: %o", options);
-                        writeToLog("meta: %o", meta);
-                    }
-                    if (chunk.isEntry) {
-                        // Recursively collect all CSS files that this entry point might need.
-                        const cssFiles = new Set<string>();
-                        const processedImports = new Set<string>();
-                        const collectCssFiles = (curChunk: RenderedChunk) => {
-                            curChunk.viteMetadata?.importedCss.forEach(css => cssFiles.add(css));
-                            for (let imp of curChunk.imports) {
-                                if (processedImports.has(imp)) {
-                                    continue;
-                                }
-                                processedImports.add(imp);
-                                collectCssFiles(meta.chunks[imp]);
-                            }
-                        };
-                        collectCssFiles(chunk);
-                        cssMap[chunk.name] = [];
-                        for (let css of cssFiles.values()) {
-                            cssMap[chunk.name].push(css);
+                async handler(_code, chunk, options, meta) {
+                    try {
+                        if (lg?.chunks) {
+                            openLog(lg?.fileName);
+                            writeToLog("Chunk Information");
+                            writeToLog("=================\n");
+                            writeToLog("======== %s ========", chunk.fileName);
+                            chunk.viteMetadata?.importedCss.forEach(css => {
+                                writeToLog('Imported CSS: %s', css);
+                            });
+                            writeToLog("chunk: %o", chunk);
+                            writeToLog("options: %o", options);
+                            writeToLog("meta: %o", meta);
                         }
+                        if (chunk.isEntry) {
+                            // Recursively collect all CSS files that this entry point might need.
+                            const cssFiles = new Set<string>();
+                            const processedImports = new Set<string>();
+                            const collectCssFiles = (curChunk: RenderedChunk) => {
+                                if (!curChunk) {
+                                    return;
+                                }
+                                curChunk.viteMetadata?.importedCss.forEach(css => cssFiles.add(css));
+                                for (let imp of curChunk.imports) {
+                                    if (processedImports.has(imp)) {
+                                        continue;
+                                    }
+                                    processedImports.add(imp);
+                                    collectCssFiles(meta.chunks[imp]);
+                                }
+                            };
+                            collectCssFiles(chunk);
+                            cssMap[chunk.name] = [];
+                            for (let css of cssFiles.values()) {
+                                cssMap[chunk.name].push(css);
+                            }
+                        }
+                    }
+                    finally {
+                        await closeLog();
                     }
                 },
             },
             generateBundle(_options, bundle, _isWrite) {
-                if (viteEnv.command === 'build') {
-                    closeLog();
-                }
                 const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
                 for (let x in bundle) {
                     const entry = bundle[x];
