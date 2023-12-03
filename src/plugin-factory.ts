@@ -1,4 +1,4 @@
-import { promises as fs, existsSync } from 'fs';
+import { promises as fs, existsSync, write } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
@@ -6,7 +6,7 @@ import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption, DebuggingOptions } from "vite-plugin-single-spa";
 import { extensionModuleName } from './ex-defs.js';
-import { closeLog, openLog, writeToLog } from './debug.js';
+import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
 
 /*
 NOTE:
@@ -49,12 +49,34 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
         }
         let configFn: ((viteOpts: ConfigEnv) => UserConfig | Promise<UserConfig>) | undefined = mifeConfig;
         let htmlXformFn: (html: string) => IndexHtmlTransformResult | void | Promise<IndexHtmlTransformResult | void> = () => { return; };
+        /**
+         * Set in config() and is used to preserve Vite command information.
+         */
         let viteEnv: ConfigEnv;
+        /**
+         * Base module path used to locate plug-in files.
+         */
         const baseModulePath = path.dirname(fileURLToPath(import.meta.url));
+        /**
+         * Module file name to use depending on the chosen CSS strategy and Vite command.
+         */
         let cssModuleFileName: string;
+        /**
+         * Used to cache the built /Ex module.
+         */
         let exModule: string;
+        /**
+         * Project ID to use when CSS strategy is not set to 'none'.
+         */
         let projectId: string;
+        /**
+         * Map of CSS files for CSS mounting
+         */
         const cssMap: Record<string, string[]> = {};
+        /**
+         * Control variable used just for logging chunks to a log file.  When true, the title has already been written.
+         */
+        let chunkInfoTitleWrittenToLog = false;
         config.type = config.type ?? 'mife';
         if (isRootConfig(config)) {
             configFn = undefined;
@@ -193,7 +215,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 }
             };
             if (lg?.config) {
-                writeToLog('Config: %o', cfg);
+                await writeToLog('# Plug-In Configuration\n\n');
+                await writeToLog(markdownCodeBlock(formatData("%o", cfg)));
             }
             return cfg;
         }
@@ -280,7 +303,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     'no-css.js' :
                     `${(config as SingleSpaMifePluginOptions).cssStrategy ?? 'singleMife'}-css.js`;
                 if (lg?.incomingConfig) {
-                    writeToLog('Incoming Config: %o', cfg);
+                    await writeToLog('# Incoming Configuration\n\n');
+                    await writeToLog(markdownCodeBlock(formatData("%o", cfg)));
                 }
                 if (configFn) {
                     return await configFn(opts);
@@ -305,18 +329,20 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 order: 'post',
                 async handler(_code, chunk, options, meta) {
                     let errorOccurred = false;
+                    // Even if renderChunk is documented as "sequential", it is run in parallel for each chunk.
+                    // This makes log entries mix with each other.  Solution:  Build the chunk log entry data built 
+                    // and then written to the log in one call.
+                    let logData: string = '';
                     try {
                         if (lg?.chunks) {
-                            openLog(lg?.fileName);
-                            writeToLog("Chunk Information");
-                            writeToLog("=================\n");
-                            writeToLog("======== %s ========", chunk.fileName);
-                            chunk.viteMetadata?.importedCss.forEach(css => {
-                                writeToLog('Imported CSS: %s', css);
-                            });
-                            writeToLog("chunk: %o", chunk);
-                            writeToLog("options: %o", options);
-                            writeToLog("meta: %o", meta);
+                            if (!chunkInfoTitleWrittenToLog) {
+                                chunkInfoTitleWrittenToLog = true;
+                                logData += formatData("# Chunk Information\n");
+                            }
+                            logData += formatData("## %s", chunk.fileName);
+                            logData += markdownCodeBlock(formatData("%o", chunk));
+                            logData += markdownCodeBlock(formatData("options: %o", options));
+                            logData += markdownCodeBlock(formatData("meta: %o", meta));
                         }
                         if (chunk.isEntry && !isRootConfig(config) && config.cssStrategy !== 'none') {
                             // Recursively collect all CSS files that this entry point might need.
@@ -347,6 +373,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                         throw error;
                     }
                     finally {
+                        await writeToLog(logData);
                         if (errorOccurred) {
                             await closeLog();
                         }
@@ -357,8 +384,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 if (viteEnv.command === 'build') {
                     await closeLog();
                 }
-                const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
                 if (!isRootConfig(config) && config.cssStrategy !== 'none') {
+                    const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
                     for (let x in bundle) {
                         const entry = bundle[x];
                         if (entry.type === 'chunk') {

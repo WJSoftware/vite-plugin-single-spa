@@ -13,7 +13,7 @@ type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise
 type ResolveIdHandler = (this: void, source: string) => string;
 type LoadHandler = (this: void, id: string) => Promise<string>;
 type RenderChunkHandler = { handler: (this: void, code: string, chunk: RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, RenderedChunk> }) => Promise<any> };
-type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => void;
+type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => Promise<void>;
 
 const viteCommands: ConfigEnv['command'][] = [
     'serve',
@@ -515,7 +515,7 @@ describe('vite-plugin-single-spa', () => {
             };
 
             // Act.
-            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+            await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
             const calculatedCssMap = JSON.parse(JSON.parse(bundle['a.js'].code));
@@ -784,7 +784,7 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of cssMapInsertionTestData) {
             it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks as RenderedChunk[], tc.expectedMap));
         }
-        it("Should insert the the package's name in the chunks that require it.", async () => {
+        it("Should insert the package's name in the chunks that require it.", async () => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -803,13 +803,13 @@ describe('vite-plugin-single-spa', () => {
             };
 
             // Act.
-            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+            await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
             const entry = bundle['A.js'];
             expect(entry.code).to.equal(pkgJson.name);
         });
-        it("Should insert the the specified project ID in the chunks that require it.", async () => {
+        it("Should insert the specified project ID in the chunks that require it.", async () => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -829,7 +829,7 @@ describe('vite-plugin-single-spa', () => {
             };
 
             // Act.
-            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+            await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
             const entry = bundle['A.js'];
