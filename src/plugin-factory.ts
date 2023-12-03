@@ -317,7 +317,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             writeToLog("options: %o", options);
                             writeToLog("meta: %o", meta);
                         }
-                        if (chunk.isEntry) {
+                        if (chunk.isEntry && !isRootConfig(config) && config.cssStrategy !== 'none') {
                             // Recursively collect all CSS files that this entry point might need.
                             const cssFiles = new Set<string>();
                             const processedImports = new Set<string>();
@@ -348,12 +348,14 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             },
             generateBundle(_options, bundle, _isWrite) {
                 const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
-                for (let x in bundle) {
-                    const entry = bundle[x];
-                    if (entry.type === 'chunk') {
-                        entry.code = entry.code
-                            ?.replace('{vpss:PROJECT_ID}', projectId)
-                            .replace('"{vpss:CSS_MAP}"', stringifiedCssMap);
+                if (!isRootConfig(config) && config.cssStrategy !== 'none') {
+                    for (let x in bundle) {
+                        const entry = bundle[x];
+                        if (entry.type === 'chunk') {
+                            entry.code = entry.code
+                                ?.replace('{vpss:PROJECT_ID}', projectId)
+                                .replace('"{vpss:CSS_MAP}"', stringifiedCssMap);
+                        }
                     }
                 }
             },
