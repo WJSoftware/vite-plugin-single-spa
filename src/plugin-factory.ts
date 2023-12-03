@@ -141,25 +141,26 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          * @returns An object with the necessary Vite options for single-spa micro-frontends.
          */
         async function mifeConfig(viteOpts: ConfigEnv) {
+            const plugInConfig = config as SingleSpaMifePluginOptions;
             const cfg: UserConfig = {};
             if (!config) {
                 return cfg;
             }
-            projectId = (config as SingleSpaMifePluginOptions).projectId ??
+            projectId = plugInConfig.projectId ??
                 (JSON.parse(await readFile('./package.json', { encoding: 'utf8' }) as string)).name;
             projectId = projectId.substring(0, 20);
             cfg.server = {
-                port: (config as SingleSpaMifePluginOptions).serverPort,
-                origin: `http://localhost:${(config as SingleSpaMifePluginOptions).serverPort}`
+                port: plugInConfig.serverPort,
+                origin: `http://localhost:${plugInConfig.serverPort}`
             };
             cfg.preview = {
-                port: (config as SingleSpaMifePluginOptions).serverPort
+                port: plugInConfig.serverPort
             };
             const entryFileNames = '[name].js';
             const input: InputOption = {};
             let preserveEntrySignatures: PreserveEntrySignaturesOption;
             if (viteOpts.command === 'build') {
-                let entryPoints = (config as SingleSpaMifePluginOptions)?.spaEntryPoints ?? 'src/spa.ts';
+                let entryPoints = plugInConfig?.spaEntryPoints ?? 'src/spa.ts';
                 if (typeof entryPoints === 'string') {
                     entryPoints = [entryPoints];
                 }
@@ -172,18 +173,21 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 input['index'] = 'index.html';
                 preserveEntrySignatures = false;
             }
+            const assetFileNames = plugInConfig.assetFileNames ?? 'assets/[name]-[hash][extname]';
+            const fileInfo = path.parse(assetFileNames);
+            const cssFileNames = path.join(fileInfo.dir, `vpss(${projectId})${fileInfo.name}`);
             cfg.build = {
                 rollupOptions: {
                     input,
                     preserveEntrySignatures,
                     output: {
                         exports: 'auto',
-                        assetFileNames: ai => {
+                        assetFileNames: plugInConfig.cssStrategy !== 'none' ? ai => {
                             if (ai.name?.endsWith('.css')) {
-                                return `assets/vpss(${projectId})[name]-[hash][extname]`;
+                                return cssFileNames;
                             }
-                            return 'assets/[name]-[hash][extname]';
-                        },
+                            return assetFileNames;
+                        } : assetFileNames,
                         entryFileNames
                     }
                 }
@@ -272,7 +276,9 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             name: 'vite-plugin-single-spa',
             async config(cfg, opts) {
                 viteEnv = opts;
-                cssModuleFileName = viteEnv.command === 'build' ? `${(config as SingleSpaMifePluginOptions).cssStrategy ?? 'singleMife'}-css.js` : 'no-css.js';
+                cssModuleFileName = viteEnv.command !== 'build' || (config as SingleSpaMifePluginOptions).cssStrategy === 'none' ?
+                    'no-css.js' :
+                    `${(config as SingleSpaMifePluginOptions).cssStrategy ?? 'singleMife'}-css.js`;
                 if (lg?.incomingConfig) {
                     writeToLog('Incoming Config: %o', cfg);
                 }

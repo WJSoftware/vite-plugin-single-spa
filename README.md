@@ -245,7 +245,8 @@ export type SingleSpaMifePluginOptions = {
     serverPort: number;
     spaEntryPoints?: string | string[];
     projectId?: string;
-    cssStrategy?: 'singleMife' | 'multiMife';
+    assetFileNames?: string;
+    cssStrategy?: 'singleMife' | 'multiMife' | 'none';
 };
 ```
 
@@ -268,6 +269,12 @@ here as well.  If you need to specify more than one file, use an array of string
 
 The default file name is certainly handy, but it is opinionated:  It is a TypeScript file (the plug-in's author's 
 preference).  If your file name differs, even if only by file extension, use `spaEntryPoints` to specify it.
+
+> Since **v0.6.0**
+
+The `assetFileNames` works as documented in [Rollup's documentation](https://rollupjs.org/configuration-options/#output-assetfilenames), 
+with one exception:  It can only be a string.  Functions may not be passed at this time.  If this is something that 
+people need, open an issue for the project's repository and request it.
 
 > `projectId`:  Since **v0.2.0**; `cssStrategy`:  Since **v0.4.0**
 
@@ -295,8 +302,6 @@ CSS.  It is very simple to use.  The following is an example of the spa entry fi
 project created with `npm create vite@latest`:
 
 ```typescript
-// IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
-// must be passed to the call to cssLifecycleFactory.
 import React from 'react';
 import ReactDOMClient from 'react-dom/client';
 // @ts-ignore
@@ -312,13 +317,15 @@ const lc = singleSpaReact({
         return <div>Error: {err}</div>
     }
 });
+// IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
+// must be passed to the call to cssLifecycleFactory.
 const cssLc = cssLifecycleFactory('spa');
 export const bootstrap = [cssLc.bootstrap, lc.bootstrap];
 export const mount = [cssLc.mount, lc.mount];
 export const unmount = [cssLc.unmount, lc.unmount];
 ```
 
-> **NOTE**:  To obtain Intellisense autocompletion with the variable `cssLc` above, install `single-spa` as a DEV 
+> **NOTE**:  To obtain full Intellisense autocompletion with the variable `cssLc` above, install `single-spa` as a DEV 
 > dependency (`npm i -D single-spa`).
 
 The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
@@ -332,12 +339,25 @@ exported/created `single-spa` lifecycle object.
 The `cssLifecycleFactory` function covers both CSS strategies (`singleMife` and `multiMife`).
 
 This new CSS mounting algorithm supports multiple SPA entry points, with single or multiple exports per entry point, 
-and mixing micro-frontends with parcels in the same project should be possible.  If you intend to either mount 
+and mixing micro-frontends with parcels in the same project should also be possible.  If you intend to either mount 
 multiple instances of the same parcel or micro-frontend, or export more than one `single-spa` lifecycle object, you 
 **must** set the options' property `cssStrategy` to `multiMife`.
 
 If, however, your project simply exports a single micro-frontend or a single parcel that doesn't expect to be mounted 
 multiple times, then `cssStrategy` can be set to `singleMife`, which is the default value for this property.
+
+#### Deactivating CSS Mounting
+
+> Since **v0.6.0**
+
+The CSS mounting algorithm in this package relies in some naming convention around bundled CSS files.  If you plan to 
+roll out your own CSS mounting algorithm, you may set `cssStrategy` to `none`.  This will effectively deactivate the 
+CSS bundle renaming that takes place during building.  This also deactivates `cssLifecycleFactory`.  If you attempt to 
+use it, the following error will occur during building:
+
+```plaintext
+RollupError: "cssLifecycleFactory" is not exported by "vite-plugin-single-spa/ex"
+```
 
 ### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
 
@@ -404,5 +424,6 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Single-SPA parcels
 - [x] Multiple `single-spa` entry points
 - [x] Logging options
+- [x] Asset file name pattern
 - [ ] Option to set development entry point? (there might be a simpler solution)
 - [ ] SvelteKit?

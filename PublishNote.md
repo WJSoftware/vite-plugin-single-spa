@@ -2,13 +2,18 @@
 
 ## Changelog
 
-## v0.5.1
+### v0.6.0
 
-+ Support for Vite v5.0
++ Added `assetFileNames` to the micro-frontend options to freely control the asset bundle names.
++ Added the `none` CSS strategy value to deactivate CSS renaming.
+
+### v0.5.1
+
++ Support for Vite v5.
 + Corrected the JsDoc for `cssLifecycleFactory`.
 + Added `exports` field to package.json for better Intellisense (requires TypeScript v4.7 or better).  Now VS Code 
 will correctly autocomplete when you start typing `import csslifec` (will autocomplete to 
-`import { cssLifecycleFactory } from 'vite-plugin-single-spa/ex`).  The same goes for `import viteen`.
+`import { cssLifecycleFactory } from 'vite-plugin-single-spa/ex'`).  The same goes for `import viteen`.
 + Changed the return type of `cssLifecycleFactory` to be explicit that it does **not** provide the `update` function.
 
 ### v0.4.0
