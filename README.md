@@ -362,8 +362,6 @@ use it, the following error will occur during building:
 RollupError: "cssLifecycleFactory" is not exported by "vite-plugin-single-spa/ex"
 ```
 
-It will also throw an error when trying to mount the micro-frontend in `serve` mode.
-
 ### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
 
 While an incredible library, `single-spa` was not designed to support the mounting of more than one instance of a 
