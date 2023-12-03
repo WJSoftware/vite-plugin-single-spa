@@ -304,6 +304,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             renderChunk: {
                 order: 'post',
                 async handler(_code, chunk, options, meta) {
+                    let errorOccurred = false;
                     try {
                         if (lg?.chunks) {
                             openLog(lg?.fileName);
@@ -341,12 +342,21 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             }
                         }
                     }
+                    catch (error) {
+                        errorOccurred = true;
+                        throw error;
+                    }
                     finally {
-                        await closeLog();
+                        if (errorOccurred) {
+                            await closeLog();
+                        }
                     }
                 },
             },
-            generateBundle(_options, bundle, _isWrite) {
+            async generateBundle(_options, bundle, _isWrite) {
+                if (viteEnv.command === 'build') {
+                    await closeLog();
+                }
                 const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
                 if (!isRootConfig(config) && config.cssStrategy !== 'none') {
                     for (let x in bundle) {
