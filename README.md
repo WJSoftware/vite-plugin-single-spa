@@ -355,12 +355,9 @@ for this property.
 
 The CSS mounting algorithm in this package relies on some naming convention around bundled CSS files.  If you plan to 
 roll out your own CSS mounting algorithm, you may set `cssStrategy` to `none`.  This will effectively deactivate the 
-CSS bundle renaming that takes place during building.  This also deactivates `cssLifecycleFactory`.  If you attempt to 
-use it, the following error will occur during building:
+CSS bundle renaming that takes place during building.  This also deactivates `cssLifecycleFactory`.
 
-```plaintext
-RollupError: "cssLifecycleFactory" is not exported by "vite-plugin-single-spa/ex"
-```
+> Currently investigating if usage of `cssLifecycleFactory` can be detected in order to emit a warning.
 
 ### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
 
