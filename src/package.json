@@ -42,6 +42,6 @@
     "vite": "^4.4.6 || ^5.0.0"
   },
   "devDependencies": {
-    "single-spa": "^5.9.5"
+    "single-spa": "^6.0.0"
   }
 }
