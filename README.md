@@ -85,18 +85,20 @@ The `type` property is mandatory for root projects and must be the string `'root
 pertain to the use of import maps and the `import-map-overrides` package.  Long story short:  Vite, while in 
 development mode, inserts the script `@vite/client` as first child in the HTML page's `<head>` element, and this makes 
 the import maps non-functional, at least for the native `importmap` type.  The solution:  Make this plug-in add both 
-the import map script and the `import-map-overrides` package as first children of the `<head>` HTML element.
+the import map script and the `import-map-overrides` package as first children of the `<head>` HTML element.  Why did 
+I tell the story?  Just so you know that it is impossible to use `import-map-overrides` with Vite "by hand" in `serve` 
+mode.
 
 The `imo` option is used to control the inclusion of `import-map-overrides`.  Set it to `false` to exclude it; set to 
 `true` to include its latest version from **JSDelivr**.  However, production deployments should never let unknown 
 versions of packages to be loaded without prior testing, so it really isn't good practice to just say "include the 
 latest version".  Instead, specify the desired package version as a string.  The current recommended version of 
-`import-map-overrides` is **v3.1.0** (but always check for yourself).
+`import-map-overrides` is **v3.1.1** (but always check for yourself).
 
 ```typescript
 vitePluginSingleSpa({
     type: 'root',
-    imo: '3.1.0'
+    imo: '3.1.1'
 })
 ```
 
@@ -111,7 +113,7 @@ returns the package's URL.
 ```typescript
 vitePluginSingleSpa({
     type: 'root',
-    imo: () => `https://my.cdn.example.com/import-map-overrides@3.1.0`
+    imo: () => `https://my.cdn.example.com/import-map-overrides@3.1.1`
 })
 ```
 
@@ -245,7 +247,8 @@ export type SingleSpaMifePluginOptions = {
     serverPort: number;
     spaEntryPoints?: string | string[];
     projectId?: string;
-    cssStrategy?: 'singleMife' | 'multiMife';
+    assetFileNames?: string;
+    cssStrategy?: 'singleMife' | 'multiMife' | 'none';
 };
 ```
 
@@ -254,7 +257,7 @@ The `type` property may be omitted, but if specified, it must be the string `'mi
 The `serverPort` property is relevant to the correct configuration of `single-spa` and therefore, it is something this 
 package must know, or things will become harder to configure between the micro-frontends and the root project.
 
-Especifically, micro-frontend projects are linked to the root project by means of its import map.  During development, 
+Specifically, micro-frontend projects are linked to the root project by means of its import map.  During development, 
 the import map will usually point to the micro-frontend's entry file with a full URL similar to 
 `http://localhost:4444/src/spa.ts`, where `4444` is the server's port number.  It is very difficult to imagine a 
 `single-spa` project that works with dynamic ports.
@@ -268,6 +271,12 @@ here as well.  If you need to specify more than one file, use an array of string
 
 The default file name is certainly handy, but it is opinionated:  It is a TypeScript file (the plug-in's author's 
 preference).  If your file name differs, even if only by file extension, use `spaEntryPoints` to specify it.
+
+> Since **v0.6.0**
+
+The `assetFileNames` option works as documented in [Rollup's documentation](https://rollupjs.org/configuration-options/#output-assetfilenames), 
+with one exception:  It can only be a string.  Functions may not be passed at this time.  If this is something that 
+people need, open an issue in the project's repository and request it.
 
 > `projectId`:  Since **v0.2.0**; `cssStrategy`:  Since **v0.4.0**
 
@@ -295,11 +304,9 @@ CSS.  It is very simple to use.  The following is an example of the spa entry fi
 project created with `npm create vite@latest`:
 
 ```typescript
-// IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
-// must be passed to the call to cssLifecycleFactory.
 import React from 'react';
 import ReactDOMClient from 'react-dom/client';
-// @ts-ignore
+// @ts-expect-error
 import singleSpaReact from 'single-spa-react';
 import App from './App';
 import { cssLifecycleFactory } from 'vite-plugin-single-spa/ex';
@@ -312,32 +319,45 @@ const lc = singleSpaReact({
         return <div>Error: {err}</div>
     }
 });
+// IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
+// must be passed to the call to cssLifecycleFactory.
 const cssLc = cssLifecycleFactory('spa');
 export const bootstrap = [cssLc.bootstrap, lc.bootstrap];
 export const mount = [cssLc.mount, lc.mount];
 export const unmount = [cssLc.unmount, lc.unmount];
 ```
 
-> **NOTE**:  To obtain Intellisense autocompletion with the variable `cssLc` above, install `single-spa` as a DEV 
+> **NOTE**:  To obtain full Intellisense autocompletion with the variable `cssLc` above, install `single-spa` as a DEV 
 > dependency (`npm i -D single-spa`).
 
 The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
 is very important that the name passed to the factory coincides *exactly* with the file name (minus the extension).
 
-The object created by the factory (in the example, stored in the `cssLc` variable), can and should be used for every 
-exported/created `single-spa` lifecycle object.
+The object created by the factory (in the example, stored in the `cssLc` variable), **must** be used for every 
+exported/created `single-spa` lifecycle object that comes out of the same file (module).
 
 ### CSS Strategy
 
 The `cssLifecycleFactory` function covers both CSS strategies (`singleMife` and `multiMife`).
 
 This new CSS mounting algorithm supports multiple SPA entry points, with single or multiple exports per entry point, 
-and mixing micro-frontends with parcels in the same project should be possible.  If you intend to either mount 
+and mixing micro-frontends with parcels in the same project should also be possible.  If you intend to either mount 
 multiple instances of the same parcel or micro-frontend, or export more than one `single-spa` lifecycle object, you 
-**must** set the options' property `cssStrategy` to `multiMife`.
+**must** set the options' `cssStrategy` property to `multiMife`.
 
-If, however, your project simply exports a single micro-frontend or a single parcel that doesn't expect to be mounted 
-multiple times, then `cssStrategy` can be set to `singleMife`, which is the default value for this property.
+If, however, your project simply exports a single micro-frontend or a single parcel that doesn't expect to be 
+instantiated more than once simultaneously, then `cssStrategy` can be set to `singleMife`, which is the default value 
+for this property.
+
+#### Deactivating CSS Mounting
+
+> Since **v0.6.0**
+
+The CSS mounting algorithm in this package relies on some naming convention around bundled CSS files.  If you plan to 
+roll out your own CSS mounting algorithm, you may set `cssStrategy` to `none`.  This will effectively deactivate the 
+CSS bundle renaming that takes place during building.  This also deactivates `cssLifecycleFactory`.
+
+> Currently investigating if usage of `cssLifecycleFactory` can be detected in order to emit a warning.
 
 ### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
 
@@ -368,7 +388,7 @@ choose the `singleMife` strategy to keep this HMR ability.
 > Since **v0.2.0**
 
 The same extension module that provides CSS lifecycle functions also provides basic information about the Vite 
-environment.  Especifically, it exports the `viteEnv` object which is described as:
+environment.  Specifically, it exports the `viteEnv` object which is described as:
 
 ```typescript
 export const viteEnv: {
@@ -404,5 +424,6 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Single-SPA parcels
 - [x] Multiple `single-spa` entry points
 - [x] Logging options
+- [x] Asset file name pattern
 - [ ] Option to set development entry point? (there might be a simpler solution)
-- [ ] SvelteKit?
+- [ ] SvelteKit support for root projects?

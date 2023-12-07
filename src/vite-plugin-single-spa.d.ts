@@ -68,8 +68,8 @@ declare module "vite-plugin-single-spa" {
          */
         projectId?: string;
         /**
-         * Specify the strategy to use by CSS lifecycle objects created with cssLifecycleFactory.  If not specified, 
-         * the default value is `singleMife`.
+         * Specify the strategy to use by CSS lifecycle objects created with `cssLifecycleFactory()`.  If not 
+         * specified, the default value is `singleMife`.
          * 
          * Use `singleMife` for single-spa micro-frontend projects that only export a single lifecycle object.  Use 
          * `multiMife` for single-spa micro-frontend projects that exports more than one lifecycle object, either from 
@@ -79,13 +79,27 @@ declare module "vite-plugin-single-spa" {
          * Also use `multiMife` for single lifecycle exports if you intend to mount multiple copies of it 
          * simultaneously.
          * 
+         * If you are not planning on using `cssLifecycleFactory()` for CSS mounting, you may use the `none` value; 
+         * CSS bundle file names won't include the `vpss(project ID)` part as it is not necessary.
+         * 
          * **WARNING**:  The single-spa library is not designed to mount multiple copies of the same micro-frontent or 
          * parcel, so be forewarned that the attempt may very well fail.  We recommend to only attempt to load 
          * multiple instances of **parcel** objects, not micro-frontends.  If you need to duplicate an entire 
          * micro-frontend, you'll be better off programming it as if it were a parcel and handle the mounting and 
          * unmounting yourself or through a proxy micro-frontend.
          */
-        cssStrategy?: 'singleMife' | 'multiMife';
+        cssStrategy?: 'singleMife' | 'multiMife' | 'none';
+        /**
+         * Pattern that specifies how asset file names are constructed.  Its default value is 
+         * `assets/[name]-[hash][extname]`.  As seen, it can specify sub-folders.
+         * 
+         * Refer to [Rollup's documentaiton](https://rollupjs.org/configuration-options/#output-assetfilenames) for 
+         * additional information.
+         * 
+         * **IMPORTANT**:  When `cssStrategy` is not `'none'`, the CSS bundle file names will be in the form 
+         * `vpss(<project id>)<pattern>`.  The plug-in is smart enough to respect any folders in the pattern.
+         */
+        assetFileNames?: string;
     } & DebuggingOptions;
 
     /**

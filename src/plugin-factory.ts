@@ -1,4 +1,4 @@
-import { promises as fs, existsSync } from 'fs';
+import { promises as fs, existsSync, write } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
@@ -6,7 +6,7 @@ import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption, DebuggingOptions } from "vite-plugin-single-spa";
 import { extensionModuleName } from './ex-defs.js';
-import { closeLog, openLog, writeToLog } from './debug.js';
+import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
 
 /*
 NOTE:
@@ -49,12 +49,34 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
         }
         let configFn: ((viteOpts: ConfigEnv) => UserConfig | Promise<UserConfig>) | undefined = mifeConfig;
         let htmlXformFn: (html: string) => IndexHtmlTransformResult | void | Promise<IndexHtmlTransformResult | void> = () => { return; };
+        /**
+         * Set in config() and is used to preserve Vite command information.
+         */
         let viteEnv: ConfigEnv;
+        /**
+         * Base module path used to locate plug-in files.
+         */
         const baseModulePath = path.dirname(fileURLToPath(import.meta.url));
+        /**
+         * Module file name to use depending on the chosen CSS strategy and Vite command.
+         */
         let cssModuleFileName: string;
+        /**
+         * Used to cache the built /Ex module.
+         */
         let exModule: string;
+        /**
+         * Project ID to use when CSS strategy is not set to 'none'.
+         */
         let projectId: string;
+        /**
+         * Map of CSS files for CSS mounting
+         */
         const cssMap: Record<string, string[]> = {};
+        /**
+         * Control variable used just for logging chunks to a log file.  When true, the title has already been written.
+         */
+        let chunkInfoTitleWrittenToLog = false;
         config.type = config.type ?? 'mife';
         if (isRootConfig(config)) {
             configFn = undefined;
@@ -141,25 +163,26 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          * @returns An object with the necessary Vite options for single-spa micro-frontends.
          */
         async function mifeConfig(viteOpts: ConfigEnv) {
+            const plugInConfig = config as SingleSpaMifePluginOptions;
             const cfg: UserConfig = {};
             if (!config) {
                 return cfg;
             }
-            projectId = (config as SingleSpaMifePluginOptions).projectId ??
+            projectId = plugInConfig.projectId ??
                 (JSON.parse(await readFile('./package.json', { encoding: 'utf8' }) as string)).name;
             projectId = projectId.substring(0, 20);
             cfg.server = {
-                port: (config as SingleSpaMifePluginOptions).serverPort,
-                origin: `http://localhost:${(config as SingleSpaMifePluginOptions).serverPort}`
+                port: plugInConfig.serverPort,
+                origin: `http://localhost:${plugInConfig.serverPort}`
             };
             cfg.preview = {
-                port: (config as SingleSpaMifePluginOptions).serverPort
+                port: plugInConfig.serverPort
             };
             const entryFileNames = '[name].js';
             const input: InputOption = {};
             let preserveEntrySignatures: PreserveEntrySignaturesOption;
             if (viteOpts.command === 'build') {
-                let entryPoints = (config as SingleSpaMifePluginOptions)?.spaEntryPoints ?? 'src/spa.ts';
+                let entryPoints = plugInConfig?.spaEntryPoints ?? 'src/spa.ts';
                 if (typeof entryPoints === 'string') {
                     entryPoints = [entryPoints];
                 }
@@ -172,24 +195,28 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 input['index'] = 'index.html';
                 preserveEntrySignatures = false;
             }
+            const assetFileNames = plugInConfig.assetFileNames ?? 'assets/[name]-[hash][extname]';
+            const fileInfo = path.parse(assetFileNames);
+            const cssFileNames = path.join(fileInfo.dir, `vpss(${projectId})${fileInfo.name}`);
             cfg.build = {
                 rollupOptions: {
                     input,
                     preserveEntrySignatures,
                     output: {
                         exports: 'auto',
-                        assetFileNames: ai => {
+                        assetFileNames: plugInConfig.cssStrategy !== 'none' ? ai => {
                             if (ai.name?.endsWith('.css')) {
-                                return `assets/vpss(${projectId})[name]-[hash][extname]`;
+                                return cssFileNames;
                             }
-                            return 'assets/[name]-[hash][extname]';
-                        },
+                            return assetFileNames;
+                        } : assetFileNames,
                         entryFileNames
                     }
                 }
             };
             if (lg?.config) {
-                writeToLog('Config: %o', cfg);
+                await writeToLog('# Plug-In Configuration\n\n');
+                await writeToLog(markdownCodeBlock(formatData("%o", cfg)));
             }
             return cfg;
         }
@@ -272,9 +299,12 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             name: 'vite-plugin-single-spa',
             async config(cfg, opts) {
                 viteEnv = opts;
-                cssModuleFileName = viteEnv.command === 'build' ? `${(config as SingleSpaMifePluginOptions).cssStrategy ?? 'singleMife'}-css.js` : 'no-css.js';
+                cssModuleFileName = viteEnv.command !== 'build' || (config as SingleSpaMifePluginOptions).cssStrategy === 'none' ?
+                    'no-css.js' :
+                    `${(config as SingleSpaMifePluginOptions).cssStrategy ?? 'singleMife'}-css.js`;
                 if (lg?.incomingConfig) {
-                    writeToLog('Incoming Config: %o', cfg);
+                    await writeToLog('# Incoming Configuration\n\n');
+                    await writeToLog(markdownCodeBlock(formatData("%o", cfg)));
                 }
                 if (configFn) {
                     return await configFn(opts);
@@ -298,20 +328,23 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             renderChunk: {
                 order: 'post',
                 async handler(_code, chunk, options, meta) {
+                    let errorOccurred = false;
+                    // Even if renderChunk is documented as "sequential", it is run in parallel for each chunk.
+                    // This makes log entries mix with each other.  Solution:  Build the chunk log entry data built 
+                    // and then written to the log in one call.
+                    let logData: string = '';
                     try {
                         if (lg?.chunks) {
-                            openLog(lg?.fileName);
-                            writeToLog("Chunk Information");
-                            writeToLog("=================\n");
-                            writeToLog("======== %s ========", chunk.fileName);
-                            chunk.viteMetadata?.importedCss.forEach(css => {
-                                writeToLog('Imported CSS: %s', css);
-                            });
-                            writeToLog("chunk: %o", chunk);
-                            writeToLog("options: %o", options);
-                            writeToLog("meta: %o", meta);
+                            if (!chunkInfoTitleWrittenToLog) {
+                                chunkInfoTitleWrittenToLog = true;
+                                logData += formatData("# Chunk Information\n");
+                            }
+                            logData += formatData("## %s", chunk.fileName);
+                            logData += markdownCodeBlock(formatData("%o", chunk));
+                            logData += markdownCodeBlock(formatData("options: %o", options));
+                            logData += markdownCodeBlock(formatData("meta: %o", meta));
                         }
-                        if (chunk.isEntry) {
+                        if (chunk.isEntry && !isRootConfig(config) && config.cssStrategy !== 'none') {
                             // Recursively collect all CSS files that this entry point might need.
                             const cssFiles = new Set<string>();
                             const processedImports = new Set<string>();
@@ -335,19 +368,31 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             }
                         }
                     }
+                    catch (error) {
+                        errorOccurred = true;
+                        throw error;
+                    }
                     finally {
-                        await closeLog();
+                        await writeToLog(logData);
+                        if (errorOccurred) {
+                            await closeLog();
+                        }
                     }
                 },
             },
-            generateBundle(_options, bundle, _isWrite) {
-                const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
-                for (let x in bundle) {
-                    const entry = bundle[x];
-                    if (entry.type === 'chunk') {
-                        entry.code = entry.code
-                            ?.replace('{vpss:PROJECT_ID}', projectId)
-                            .replace('"{vpss:CSS_MAP}"', stringifiedCssMap);
+            async generateBundle(_options, bundle, _isWrite) {
+                if (viteEnv.command === 'build') {
+                    await closeLog();
+                }
+                if (!isRootConfig(config) && config.cssStrategy !== 'none') {
+                    const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
+                    for (let x in bundle) {
+                        const entry = bundle[x];
+                        if (entry.type === 'chunk') {
+                            entry.code = entry.code
+                                ?.replace('{vpss:PROJECT_ID}', projectId)
+                                .replace('"{vpss:CSS_MAP}"', stringifiedCssMap);
+                        }
                     }
                 }
             },

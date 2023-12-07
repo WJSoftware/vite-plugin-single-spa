@@ -1,7 +1,7 @@
 import util from "util";
 import { createWriteStream, type WriteStream } from "fs";
 
-const defaultLogFileName = 'vpss.log';
+const defaultLogFileName = 'vpss.md';
 let stream: WriteStream | undefined;
 
 /**
@@ -20,12 +20,48 @@ export function openLog(fileName: string | undefined) {
  * @param formatString Message's format string.
  * @param restArgs Arguments used to fill the placeholders found in the format string.
  */
-export function writeToLog(formatString: string, ...restArgs: any[]) {
-    if (!stream) {
-        return;
+export async function writeToLog(formatString: string, ...restArgs: any[]) {
+    let data: string;
+    if (restArgs?.length > 0) {
+        data = formatData(formatString, restArgs);
     }
-    const data = util.format(`${formatString}\n`, ...restArgs);
-    stream.write(data);
+    else {
+        data = formatString;
+    }
+    return new Promise<void>((rslv, rjct) => {
+        if (!stream) {
+            rslv();
+            return;
+        }
+        stream.write(data, (error) => {
+            if (error) {
+                rjct(error);
+            }
+            else {
+                rslv();
+            }
+        });
+    });
+}
+
+/**
+ * Outputs data according to the desired format string.
+ * @param formatString Desired format string.
+ * @param restArgs Arguments used to fill the placeholders found in the format string.
+ * @returns The result of combining the arguments as specified by the format string.
+ */
+export function formatData(formatString: string, ...restArgs: any[]) {
+    return util.format(`${formatString}\n`, ...restArgs);
+}
+
+/**
+ * Creates a Markdown code block around the provided content.
+ * @param content Code block content.
+ * @param lang Code block language.  If not specified, it will be 'js' by default.
+ * @returns A string containing the desired Markdown code block.
+ */
+export function markdownCodeBlock(content: string, lang: 'js' | 'ts' | 'html' | 'plaintext' = 'js') {
+    return formatData("```%s\n%s\n```\n\n", lang, content);
 }
 
 /**

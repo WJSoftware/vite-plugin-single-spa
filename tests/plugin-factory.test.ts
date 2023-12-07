@@ -1,11 +1,11 @@
 /// <reference path="../src/vite-plugin-single-spa.d.ts"/>
-import { expect } from 'chai';
+import { AssertionError, expect } from 'chai';
 import { describe, it } from 'mocha';
 import { pluginFactory } from '../src/plugin-factory.js';
 
 import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption, ImportMap } from "vite-plugin-single-spa";
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
-import type { PreserveEntrySignaturesOption, OutputOptions, RenderedChunk } from 'rollup';
+import type { PreserveEntrySignaturesOption, OutputOptions, RenderedChunk, PreRenderedAsset } from 'rollup';
 import { extensionModuleName } from '../src/ex-defs.js';
 import path from 'path';
 
@@ -13,7 +13,7 @@ type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise
 type ResolveIdHandler = (this: void, source: string) => string;
 type LoadHandler = (this: void, id: string) => Promise<string>;
 type RenderChunkHandler = { handler: (this: void, code: string, chunk: RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, RenderedChunk> }) => Promise<any> };
-type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => void;
+type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => Promise<void>;
 
 const viteCommands: ConfigEnv['command'][] = [
     'serve',
@@ -160,6 +160,111 @@ describe('vite-plugin-single-spa', () => {
             expect(fileNameSetting).to.not.match(/\[hash\]/);
         };
         it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
+        const assetFileNameTest = async (pattern: string | undefined, cssStrategy: SingleSpaMifePluginOptions['cssStrategy'], cssExpectation: string, nonCssExpectation: string) => {
+            // Arrange.
+            const options: SingleSpaMifePluginOptions = { serverPort: 4111, cssStrategy, assetFileNames: pattern };
+            const readFile = (fileName: string, _opts: any) => {
+                if (fileName !== './package.json') {
+                    throw new Error(`readFile received an unexpected file name: ${fileName}.`);
+                }
+                return Promise.resolve(JSON.stringify(pkgJson));
+            };
+            const plugIn = pluginFactory(readFile)(options);
+            const env: ConfigEnv = { command: 'build', mode: 'development' };
+
+            // Act.
+            const config = await (plugIn.config as ConfigHandler)({}, env);
+
+            // Assert.
+            const fn = (config.build?.rollupOptions?.output as OutputOptions).assetFileNames;
+            if (typeof fn !== 'function') {
+                expect(fn).to.equal(cssExpectation);
+                expect(fn).to.equal(nonCssExpectation);
+            }
+            else {
+                expect(fn({ name: 'a.css' } as PreRenderedAsset)).to.equal(cssExpectation);
+                expect(fn({ name: 'b.jpg' } as PreRenderedAsset)).to.equal(nonCssExpectation);
+            }
+        };
+        const assetFileNameTestData: {
+            pattern?: string;
+            cssStrategy: SingleSpaMifePluginOptions['cssStrategy'];
+            cssExpectation: string;
+            nonCssExpectation: string;
+        }[] = [
+                {
+                    cssStrategy: 'singleMife',
+                    cssExpectation: path.join('assets', `vpss(${pkgJson.name})[name]-[hash][extname]`),
+                    nonCssExpectation: 'assets/[name]-[hash][extname]'
+                },
+                {
+                    cssStrategy: 'multiMife',
+                    cssExpectation: path.join('assets', `vpss(${pkgJson.name})[name]-[hash][extname]`),
+                    nonCssExpectation: 'assets/[name]-[hash][extname]'
+                },
+                {
+                    cssStrategy: 'none',
+                    cssExpectation: 'assets/[name]-[hash][extname]',
+                    nonCssExpectation: 'assets/[name]-[hash][extname]'
+                },
+                {
+                    pattern: 'assets/[name][extname]',
+                    cssStrategy: 'singleMife',
+                    cssExpectation: path.join('assets', `vpss(${pkgJson.name})[name][extname]`),
+                    nonCssExpectation: 'assets/[name][extname]'
+                },
+                {
+                    pattern: 'assets/[name][extname]',
+                    cssStrategy: 'multiMife',
+                    cssExpectation: path.join('assets', `vpss(${pkgJson.name})[name][extname]`),
+                    nonCssExpectation: 'assets/[name][extname]'
+                },
+                {
+                    pattern: 'assets/[name][extname]',
+                    cssStrategy: 'none',
+                    cssExpectation: 'assets/[name][extname]',
+                    nonCssExpectation: 'assets/[name][extname]'
+                },
+                {
+                    pattern: 'assets/subdir/[name][extname]',
+                    cssStrategy: 'singleMife',
+                    cssExpectation: path.join('assets/subdir', `vpss(${pkgJson.name})[name][extname]`),
+                    nonCssExpectation: 'assets/subdir/[name][extname]'
+                },
+                {
+                    pattern: 'assets/subdir/[name][extname]',
+                    cssStrategy: 'multiMife',
+                    cssExpectation: path.join('assets/subdir', `vpss(${pkgJson.name})[name][extname]`),
+                    nonCssExpectation: 'assets/subdir/[name][extname]'
+                },
+                {
+                    pattern: 'assets/subdir/[name][extname]',
+                    cssStrategy: 'none',
+                    cssExpectation: 'assets/subdir/[name][extname]',
+                    nonCssExpectation: 'assets/subdir/[name][extname]'
+                },
+                {
+                    pattern: '[name][extname]',
+                    cssStrategy: 'singleMife',
+                    cssExpectation: `vpss(${pkgJson.name})[name][extname]`,
+                    nonCssExpectation: '[name][extname]'
+                },
+                {
+                    pattern: '[name][extname]',
+                    cssStrategy: 'multiMife',
+                    cssExpectation: `vpss(${pkgJson.name})[name][extname]`,
+                    nonCssExpectation: '[name][extname]'
+                },
+                {
+                    pattern: '[name][extname]',
+                    cssStrategy: 'none',
+                    cssExpectation: '[name][extname]',
+                    nonCssExpectation: '[name][extname]'
+                },
+            ];
+        assetFileNameTestData.forEach(tc => {
+            it(`Should generate asset file names that respects the user configuration: "${tc.cssStrategy}" stratety, ${tc.pattern ?? '(default pattern)'}`, () => assetFileNameTest(tc.pattern, tc.cssStrategy, tc.cssExpectation, tc.nonCssExpectation));
+        });
         it("Should configure Vite's server.config property with the base URL (http://localhost:<port>).", async () => {
             // Arrange.
             const port = 4321;
@@ -369,7 +474,7 @@ describe('vite-plugin-single-spa', () => {
                 chunks: {}
             };
             await (plugIn.config as ConfigHandler)({}, env);
-            
+
             // Act.
             let caughtError = false;
             try {
@@ -410,7 +515,7 @@ describe('vite-plugin-single-spa', () => {
             };
 
             // Act.
-            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+            await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
             const calculatedCssMap = JSON.parse(JSON.parse(bundle['a.js'].code));
@@ -679,7 +784,7 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of cssMapInsertionTestData) {
             it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks as RenderedChunk[], tc.expectedMap));
         }
-        it("Should insert the the package's name in the chunks that require it.", async () => {
+        it("Should insert the package's name in the chunks that require it.", async () => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -698,13 +803,13 @@ describe('vite-plugin-single-spa', () => {
             };
 
             // Act.
-            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+            await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
             const entry = bundle['A.js'];
             expect(entry.code).to.equal(pkgJson.name);
         });
-        it("Should insert the the specified project ID in the chunks that require it.", async () => {
+        it("Should insert the specified project ID in the chunks that require it.", async () => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -724,7 +829,7 @@ describe('vite-plugin-single-spa', () => {
             };
 
             // Act.
-            (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
+            await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
 
             // Assert.
             const entry = bundle['A.js'];
