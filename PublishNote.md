@@ -6,6 +6,7 @@
 
 + Added `assetFileNames` to the micro-frontend options to freely control the asset bundle names.
 + Added the `none` CSS strategy value to deactivate CSS renaming.
++ Fix:  Correct export of `cssLifecycleFactory` while in Vite's `serve` mode.
 
 ### v0.5.1
 
