@@ -114,11 +114,11 @@ declare module "vite-plugin-single-spa" {
         /**
          * File name or array of file names of the import map or maps to be used while developing.
          */
-        dev?: string | string[];
+        dev?: string | string[] | Record<string, any>;
         /**
          * File name or array of file names of the import map or maps to be used while building.
          */
-        build?: string | string[];
+        build?: string | string[] | Record<string, any>;
     };
 
     /**

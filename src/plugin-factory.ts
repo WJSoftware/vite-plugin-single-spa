@@ -125,6 +125,9 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 }) as string;
                 return [contents];
             }
+            else if (typeof fileCfg === 'object' && !Array.isArray(fileCfg)) {
+                return [JSON.stringify(fileCfg)];
+            }
             else {
                 const fileContents: string[] = [];
                 for (let f of fileCfg) {
