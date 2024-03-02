@@ -1,33 +1,26 @@
 > This plug-in is still experimental.  Feel free to provide feedback and even contribute.
 
+## Call for Feedback
+
+A poll about the use of `single-spa`'s `unloadApplication()` function has been opened.  It will help the development 
+of this plug-in if you could [visit this poll](https://github.com/WJSoftware/vite-plugin-single-spa/discussions/98) 
+and voted.
+
+> **Please vote even if you don't know about this function (it is a possible vote option).**
+
 ## Changelog
+
+### v0.6.1
+
++ Fix:  Dynamic CSS links from other micro-frontends were being disabled by unloading a micro-frontend using the 
+`singleMife` or `multiMife` CSS strategy if said links were loaded after the micro-frontend.
++ Fix:  Dynamic CSS links would not be tracked under the `multiMife` CSS strategy after unloading all parcels of a 
+project and then loading another.
 
 ### v0.6.0
 
-+ Added `assetFileNames` to the micro-frontend options to freely control the asset bundle names.
++ Added `assetFileNames` to the micro-frontend options to more freely control the asset bundle names.
 + Added the `none` CSS strategy value to deactivate CSS renaming.
-+ Fix:  Correct export of `cssLifecycleFactory` while in Vite's `serve` mode.
-
-### v0.5.1
-
-+ Support for Vite v5.
-+ Corrected the JsDoc for `cssLifecycleFactory`.
-+ Added `exports` field to package.json for better Intellisense (requires TypeScript v4.7 or better).  Now VS Code 
-will correctly autocomplete when you start typing `import csslifec` (will autocomplete to 
-`import { cssLifecycleFactory } from 'vite-plugin-single-spa/ex'`).  The same goes for `import viteen`.
-+ Changed the return type of `cssLifecycleFactory` to be explicit that it does **not** provide the `update` function.
-
-### v0.4.0
-
-+ Support for multiple entry point files.
-+ Support for multiple `single-spa` exports (in one or multiple files), or multiple instances of the same parcel or 
-micro-frontend.
-+ Major change in CSS Mounting.  Be sure to read about it.
-+ Logging options (not documented, but Intellisense should reveal them).
-
-#### BREAKING CHANGES
-
-+ The `cssLifecycle` object has been removed.  Use `cssLifecycleFactory` instead.
-+ The `spaEntryPoint` property has been renamed to `spaEntryPoints`.
++ Fix:  Corrected export of `cssLifecycleFactory` while in Vite's `serve` mode.
 
 ---
