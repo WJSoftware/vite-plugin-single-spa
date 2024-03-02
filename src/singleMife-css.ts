@@ -18,7 +18,7 @@ function observeHead() {
         mutations.forEach(m => {
             if (m.addedNodes.length > 0) {
                 m.addedNodes.forEach(an => {
-                    if (isLinkElement(an) && an.rel === 'stylesheet' && an.href.indexOf(`vpss(${projectId})`)) {
+                    if (isLinkElement(an) && an.rel === 'stylesheet' && an.href.includes(`vpss(${projectId})`)) {
                         (an.getAttribute('data-vpss') ? vpssLinkEls : autoLinkEls).push(an);
                     }
                 });
