@@ -48,15 +48,6 @@ export function cssLifecycleFactory(entryPoint: string) {
 }
 
 /**
- * Searches the HEAD element for a CSS link element that refers to the specified CSS filename.
- * @param cssFileName CSS file name the HTML link element must refer to.
- * @returns The found CSS link element, or null if none is found.
- */
-function findCssLinkElement(cssFileName: string) {
-    return document.querySelector(`head > link[rel='stylesheet'][href='${base + cssFileName}'][data-vpss=false]`);
-}
-
-/**
  * Mounts the specified CSS filename as a CSS link element in the HEAD element.
  * @param cssFileName The CSS filename to be mounted.
  */
