@@ -111,8 +111,6 @@ function maybeUnmountAutoCss() {
         el.disabled = true;
     }
     autoLinksMounted = false;
-    observer?.disconnect();
-    observer = undefined;
 }
 
 /**
