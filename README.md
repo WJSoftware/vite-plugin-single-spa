@@ -425,5 +425,8 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Multiple `single-spa` entry points
 - [x] Logging options
 - [x] Asset file name pattern
+- [ ] Input file name pattern
+- [ ] Specify import maps as objects instead of file names
+- [ ] Possibly remove the need for CSS strategies (modify `multiMife` so it can re-bootstrap safely)
 - [ ] Option to set development entry point? (there might be a simpler solution)
 - [ ] SvelteKit support for root projects?
