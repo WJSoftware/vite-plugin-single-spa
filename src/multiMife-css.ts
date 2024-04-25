@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { type CssLifecycleFactoryOptions } from "vite-plugin-single-spa/ex";
-import { createLinkElement, defaultFactoryOptions, processCssPromises, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
+import { createLinkElement, defaultFactoryOptions, getLogger, processCssPromises, setLogger, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
 
 let observer: MutationObserver | undefined;
 let autoLinkEls: HTMLLinkElement[] = [];
@@ -18,6 +18,7 @@ export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFa
         ...defaultFactoryOptions,
         ...options
     };
+    setLogger(opts.logger);
     const cssFileNames = cssMap[entryPoint] ?? [];
 
     return {
@@ -97,12 +98,13 @@ function mountAutoCss() {
  */
 function unmountCssFile(cssFileName: string) {
     let map = cssFileMap[cssFileName];
+    const logger = getLogger();
     if (!map) {
-        console.warn('A request to unmount CSS file %s was made, but said file has no file map.', cssFileName);
+        logger.warn('A request to unmount CSS file %s was made, but said file has no file map.', cssFileName);
         return;
     }
     if (map.count <= 0) {
-        console.warn('A request to unmount CSS file %s was made, but its count is already %d.', cssFileName, map.count);
+        logger.warn('A request to unmount CSS file %s was made, but its count is already %d.', cssFileName, map.count);
         return;
     }
     map.linkElement.disabled = --map.count === 0;
