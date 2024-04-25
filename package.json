@@ -3,12 +3,12 @@
     "@types/chai": "^4.3.10",
     "@types/mocha": "^10.0.4",
     "@types/node": "^20.12.7",
-    "chai": "^5.0.0",
+    "chai": "^5.1.0",
     "mocha": "^10.4.0",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5",
-    "vite": "^5.2.8"
+    "vite": "^5.2.10"
   },
   "scripts": {
     "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts"
