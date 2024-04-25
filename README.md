@@ -480,7 +480,7 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Logging options
 - [x] Asset file name pattern
 - [x] CSS `load` event to prevent FOUC
-- [ ] Logger object for cssLifecycleFactory to allow full control of what renders in the console
+- [x] Logger object for cssLifecycleFactory to allow full control of what renders in the console
 - [ ] Input file name pattern?
 - [ ] Specify import maps as objects instead of file names
 - [ ] Possibly remove the need for CSS strategies (modify `multiMife` so it can re-bootstrap safely)
