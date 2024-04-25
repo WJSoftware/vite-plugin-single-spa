@@ -5,7 +5,7 @@ import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
 import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption, DebuggingOptions } from "vite-plugin-single-spa";
-import { extensionModuleName } from './ex-defs.js';
+import { cssHelpersModuleName, extensionModuleName } from './ex-defs.js';
 import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
 
 /*
@@ -315,7 +315,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 return {};
             },
             resolveId(source, _importer, _options) {
-                if (source === extensionModuleName) {
+                if (source === extensionModuleName || source === cssHelpersModuleName) {
                     return source;
                 }
                 return null;
@@ -323,6 +323,9 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             async load(id, _options) {
                 if (id === extensionModuleName) {
                     return exModule = exModule ?? (await buildExModule());
+                }
+                else if (id === cssHelpersModuleName) {
+                    return await readFile(buildPeerModulePath(id), { encoding: 'utf8' }) as string;
                 }
             },
             renderChunk: {

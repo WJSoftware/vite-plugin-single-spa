@@ -321,20 +321,19 @@ const lc = singleSpaReact({
 });
 // IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
 // must be passed to the call to cssLifecycleFactory.
-const cssLc = cssLifecycleFactory('spa');
+const cssLc = cssLifecycleFactory('spa', /* optional factory options */);
 export const bootstrap = [cssLc.bootstrap, lc.bootstrap];
 export const mount = [cssLc.mount, lc.mount];
 export const unmount = [cssLc.unmount, lc.unmount];
 ```
-
-> **NOTE**:  To obtain full Intellisense autocompletion with the variable `cssLc` above, install `single-spa` as a DEV 
-> dependency (`npm i -D single-spa`).
 
 The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
 is very important that the name passed to the factory coincides *exactly* with the file name (minus the extension).
 
 The object created by the factory (in the example, stored in the `cssLc` variable), **must** be used for every 
 exported/created `single-spa` lifecycle object that comes out of the same file (module).
+
+**NOTE**:  The optional factory options control the behavior of the FOUC-prevention feature.
 
 ### CSS Strategy
 
@@ -358,6 +357,44 @@ roll out your own CSS mounting algorithm, you may set `cssStrategy` to `none`.  
 CSS bundle renaming that takes place during building.  This also deactivates `cssLifecycleFactory`.
 
 > Currently investigating if usage of `cssLifecycleFactory` can be detected in order to emit a warning.
+
+### FOUC Prevention
+
+> Since **v0.7.0**
+
+The object created with the `cssLifecycleFactory()` function prevents FOUC (flash of unstyled content) by delaying the 
+mounting operation until all the CSS files that the plug-in handles (the CSS bundles created by Vite) are loaded and 
+ready to be used by the browser.  This is implemented by subscribing to the LINK element's `load` and `error` events, 
+and only returning if the CSS loads, an error occurs, or the specified time elapses (a timeout event).
+
+The following options, which are set when calling `cssLifecycleFactory()`, control the behavior of this feature:
+
+```typescript
+export type CssLifecycleFactoryOptions = {
+    loadTimeout?: number;
+    failOnTimeout?: boolean;
+    failOnError?: boolean;
+};
+```
+
+Set the `loadTimeout` property to the amount of time to wait for the `load` or `error` events to fire before taking 
+action.  Which action?  That depends on the other two properties.
+
+When set to `true`, `failOnTimeout` throws an error that aborts the micro-frontend mounting process, but when set to 
+`false`, only a warning is logged to the console.
+
+The last property, `failOnError`, works identically to `failOnTimeout`, except that it applies to the times where the 
+CSS fetching process fails.
+
+The default values are, respectively, 1500ms, `false` and `false`.
+
+#### FOUC Prevention Known Facts & Issues
+
+1. `single-spa`, by default, emits minified error message #31 if the mounting process takes 3000ms or more.  Avoid 
+setting `loadTimeout` to 3000ms or higher.
+2. The CSS mounting algorithm dismounts CSS by disabling CSS LINK elements, and then, if necessary, these are 
+re-enabled.  Even though a network call is generated in the Network tab of the developer tools, a `load` event is 
+never fired, meaning that FOUC prevention only works on the very first time the CSS is mounted.
 
 ### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
 
@@ -425,8 +462,12 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Multiple `single-spa` entry points
 - [x] Logging options
 - [x] Asset file name pattern
-- [ ] Input file name pattern
+- [x] CSS `load` event to prevent FOUC
+- [ ] Logger object for cssLifecycleFactory to allow full control of what renders in the console
+- [ ] Input file name pattern?
 - [ ] Specify import maps as objects instead of file names
 - [ ] Possibly remove the need for CSS strategies (modify `multiMife` so it can re-bootstrap safely)
+- [ ] CSS `blocking="render"` attribute on injected LINK elements (experimental feature)? Instead of `load` event to prevent FOUC.
+- [ ] Allow media query specification for injected CSS LINK elements? (not sure if this is relevant to this plug-in)
 - [ ] Option to set development entry point? (there might be a simpler solution)
 - [ ] SvelteKit support for root projects?
