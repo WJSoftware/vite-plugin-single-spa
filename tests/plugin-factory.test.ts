@@ -6,7 +6,7 @@ import { pluginFactory } from '../src/plugin-factory.js';
 import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption, ImportMap } from "vite-plugin-single-spa";
 import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
 import type { PreserveEntrySignaturesOption, OutputOptions, RenderedChunk, PreRenderedAsset } from 'rollup';
-import { extensionModuleName } from '../src/ex-defs.js';
+import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
 import path from 'path';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
@@ -317,6 +317,11 @@ describe('vite-plugin-single-spa', () => {
                 source: 'vite-plugin-single-spa',
                 expectedResult: null,
                 text: 'not '
+            },
+            {
+                source: cssHelpersModuleName,
+                expectedResult: cssHelpersModuleName,
+                text: ''
             }
         ];
         for (let cmd of viteCommands) {
@@ -398,6 +403,18 @@ describe('vite-plugin-single-spa', () => {
                 moduleId: extensionModuleName,
                 expectedModuleName: 'vite-env.js',
                 cssStrategy: 'singleMife'
+            },
+            {
+                cmd: 'build',
+                moduleId: cssHelpersModuleName,
+                expectedModuleName: cssHelpersModuleName.substring(2),
+                cssStrategy: 'multiMife'
+            },
+            {
+                cmd: 'serve',
+                moduleId: cssHelpersModuleName,
+                expectedModuleName: cssHelpersModuleName.substring(2),
+                cssStrategy: 'multiMife'
             }
         ];
         for (let tc of exModuleBuildingTestData) {

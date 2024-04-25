@@ -10,17 +10,16 @@ and voted.
 
 ## Changelog
 
+### v0.7.0
+
++ **FEATURE**:  FOUC prevention.  CSS mounting now awaits the `load` event of CSS LINK elements before mounting the 
+micro-frontends.
+
 ### v0.6.1
 
 + Fix:  Dynamic CSS links from other micro-frontends were being disabled by unloading a micro-frontend using the 
 `singleMife` or `multiMife` CSS strategy if said links were loaded after the micro-frontend.
 + Fix:  Dynamic CSS links would not be tracked under the `multiMife` CSS strategy after unloading all parcels of a 
 project and then loading another.
-
-### v0.6.0
-
-+ Added `assetFileNames` to the micro-frontend options to more freely control the asset bundle names.
-+ Added the `none` CSS strategy value to deactivate CSS renaming.
-+ Fix:  Corrected export of `cssLifecycleFactory` while in Vite's `serve` mode.
 
 ---

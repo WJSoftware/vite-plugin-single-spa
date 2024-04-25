@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+import { CssLifecycleFactoryOptions } from "vite-plugin-single-spa/ex";
+import { createLinkElement, defaultFactoryOptions, processCssPromises, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
+
 let observer: MutationObserver | undefined;
 let vpssLinkEls: HTMLLinkElement[];
 let autoLinkEls: HTMLLinkElement[] = [];
@@ -8,6 +11,7 @@ const cssInjectedDictionary = '{vpss:CSS_MAP}';
 const cssMap: Record<string, string[]> = JSON.parse(cssInjectedDictionary);
 let base = import.meta.env.BASE_URL;
 base += base.endsWith('/') ? '' : '/';
+let bootstrappedElements: HTMLLinkElement[] | undefined;
 
 function isLinkElement(el: Node): el is HTMLLinkElement {
     return el.nodeName === 'LINK';
@@ -42,21 +46,31 @@ function bootstrap(cssFiles: string[]) {
     cleanHeadElement(autoLinkEls);
     vpssLinkEls = [];
     autoLinkEls = [];
+    bootstrappedElements = [];
     if (cssFiles.length === 0) {
         return Promise.resolve();
     }
     for (let css of cssFiles) {
-        const el = globalThis.document.createElement('link');
-        el.rel = 'stylesheet';
-        el.href = base + css;
-        el.setAttribute('data-vpss', 'true');
-        el.disabled = true;
-        globalThis.document.head.appendChild(el);
+        const el = createLinkElement(base + css);
+        bootstrappedElements.push(el);
     }
     return Promise.resolve();
 }
 
-function mount(cssFiles: string[]) {
+async function mount(cssFiles: string[], options: Required<CssLifecycleFactoryOptions>) {
+    const loadPromises: Promise<LinkLoadResult>[] = [];
+    let fileIndex = 0;
+    if (bootstrappedElements) {
+        for (let el of bootstrappedElements) {
+            globalThis.document.head.appendChild(el);
+            const promise = wireCssLinkElement(el, cssFiles[fileIndex++], projectId, options.loadTimeout);
+            loadPromises.push(promise);
+        }
+        bootstrappedElements = undefined;
+    }
+    else {
+        loadPromises.push(Promise.resolve({ status: 'ok' }));
+    }
     if (cssFiles.length > 0) {
         for (let el of vpssLinkEls) {
             el.disabled = false;
@@ -65,6 +79,7 @@ function mount(cssFiles: string[]) {
     for (let el of autoLinkEls) {
         el.disabled = false;
     }
+    await processCssPromises(loadPromises, options);
     return Promise.resolve();
 }
 
@@ -80,11 +95,15 @@ function unmount(cssFiles: string[]) {
     return Promise.resolve();
 }
 
-export function cssLifecycleFactory(entryPoint: string) {
+export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFactoryOptions) {
+    const opts: Required<CssLifecycleFactoryOptions> = {
+        ...defaultFactoryOptions,
+        ...options
+    };
     const cssFiles = cssMap[entryPoint] ?? [];
     return {
         bootstrap: bootstrap.bind(null, cssFiles),
-        mount: mount.bind(null, cssFiles),
+        mount: mount.bind(null, cssFiles, opts),
         unmount: unmount.bind(null, cssFiles)
     };
 };

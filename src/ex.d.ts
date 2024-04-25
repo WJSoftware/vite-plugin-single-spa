@@ -21,6 +21,29 @@ declare module 'vite-plugin-single-spa/ex' {
     };
 
     /**
+     * Options for the `cssLifecycleFactory` function.
+     */
+    export type CssLifecycleFactoryOptions = {
+        /**
+         * Specifies the amount of time to wait for a CSS LINK element to load before potentially aborting the mount 
+         * operation.
+         * 
+         * **NOTE**:  `single-spa` v6 (and probably previous versions) emit minified error message #31 if mounting 
+         * takes more than 3000 milliseconds.  To avoid this error message, set this property to less than those 3000 
+         * milliseconds.
+         */
+        loadTimeout?: number;
+        /**
+         * When set to `true`, a timeout event will abort the mount operation with a thrown error.
+         */
+        failOnTimeout?: boolean;
+        /**
+         * When set to `true`, an error event during CSS load will abort the mount operation with a thrown error.
+         */
+        failOnError?: boolean;
+    };
+
+    /**
      * Factory function that creates a `single-spa` CSS lifecycle object that manages the CSS files associated with 
      * the specified entry point.
      * 
@@ -29,9 +52,10 @@ declare module 'vite-plugin-single-spa/ex' {
      * exported from the same entry point file.
      * @param entryPoint Name of the entry point that dictates which CSS files the CSS lifecycle object will be 
      * managing.
+     * @param options CSS lifecycle factory options.
      * @returns The `single-spa` lifecycle object capable of managing the entry point's CSS files.
      */
-    export function cssLifecycleFactory(entryPoint: string): {
+    export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFactoryOptions): {
         bootstrap: LifeCycleFn<{}>;
         mount: LifeCycleFn<{}>;
         unmount: LifeCycleFn<{}>;

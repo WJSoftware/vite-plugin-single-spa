@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+import { type CssLifecycleFactoryOptions } from "vite-plugin-single-spa/ex";
+import { createLinkElement, defaultFactoryOptions, processCssPromises, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
+
 let observer: MutationObserver | undefined;
 let autoLinkEls: HTMLLinkElement[] = [];
 const projectId = '{vpss:PROJECT_ID}';
@@ -10,7 +13,11 @@ let base = import.meta.env.BASE_URL;
 base += base.endsWith('/') ? '' : '/';
 let autoLinksMounted = false;
 
-export function cssLifecycleFactory(entryPoint: string) {
+export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFactoryOptions) {
+    const opts: Required<CssLifecycleFactoryOptions> = {
+        ...defaultFactoryOptions,
+        ...options
+    };
     const cssFileNames = cssMap[entryPoint] ?? [];
 
     return {
@@ -26,11 +33,10 @@ export function cssLifecycleFactory(entryPoint: string) {
         return Promise.resolve();
     }
 
-    function mount() {
+    async function mount() {
         if (cssFileNames.length > 0) {
-            for (let css of cssFileNames) {
-                mountCssFile(css);
-            }
+            const cssPromises = cssFileNames.map(css => mountCssFile(css, opts.loadTimeout));
+            await processCssPromises(cssPromises, opts);
         }
         mountAutoCss();
         return Promise.resolve();
@@ -48,21 +54,28 @@ export function cssLifecycleFactory(entryPoint: string) {
 }
 
 /**
- * Mounts the specified CSS filename as a CSS link element in the HEAD element.
+ * Mounts the specified CSS filename as a CSS link element in the HEAD element.  The function returns a promise that 
+ * resolves once the load event of the LINK element fires.
  * @param cssFileName The CSS filename to be mounted.
  */
-function mountCssFile(cssFileName: string) {
-    let map = cssFileMap[cssFileName] ?? { count: 0 }
-    if (map.count++ === 0 && !map.linkElement) {
-        const el = globalThis.document.createElement('link');
-        el.rel = 'stylesheet';
-        el.href = base + cssFileName;
-        el.setAttribute('data-vpss', 'true');
-        globalThis.document.head.appendChild(el);
-        map.linkElement = el;
-    }
-    map.linkElement.disabled = false;
-    cssFileMap[cssFileName] = map;
+function mountCssFile(cssFileName: string, loadTimeout: number) {
+    return new Promise<LinkLoadResult>((rslv, _rjct) => {
+        let map = cssFileMap[cssFileName] ?? { count: 0 };
+        const firstTimeLoading = !map.linkElement;
+        if (map.count++ === 0 && !map.linkElement) {
+            map.linkElement = createLinkElement(base + cssFileName);
+            globalThis.document.head.appendChild(map.linkElement);
+        }
+        map.linkElement.disabled = false;
+        // The load event doesn't seem to fire for pre-existing elements that are merely re-enabled, even though a 
+        // network request shows up in the Network tab of the browser's developer tools.
+        if (!firstTimeLoading) {
+            rslv({ status: 'ok' });
+            return;
+        }
+        cssFileMap[cssFileName] = map;
+        rslv(wireCssLinkElement(map.linkElement, cssFileName, projectId, loadTimeout));
+    });
 }
 
 /**
