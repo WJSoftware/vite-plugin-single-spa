@@ -333,7 +333,21 @@ is very important that the name passed to the factory coincides *exactly* with t
 The object created by the factory (in the example, stored in the `cssLc` variable), **must** be used for every 
 exported/created `single-spa` lifecycle object that comes out of the same file (module).
 
-**NOTE**:  The optional factory options control the behavior of the FOUC-prevention feature.
+**NOTE**:  The optional factory options control the behavior of the FOUC-prevention feature and control over what is 
+logged to the console.
+
+### Console Logging
+
+> Since **v0.7.0**
+
+The option named `logger` in the options parameter of the `cssLifecycleFactory()` function can be used to control what 
+gets logged to the browser's console from the CSS mounting algorithms.  Its default value is `true` and means "log to 
+the console".  If set to `false`, then nothing is logged to the console.
+
+There is a third possiblity:  To provide a custom logger object.  The logger only needs to implement the 4 console 
+methods `debug()`, `info()`, `warn()` and `error()`.  Use this approach if you need fine-grained control over what 
+gets logged to the console, or to even do fancier logging, such as posting the console entries to a remote structured 
+log storage, like a **Seq** server.
 
 ### CSS Strategy
 
@@ -371,11 +385,14 @@ The following options, which are set when calling `cssLifecycleFactory()`, contr
 
 ```typescript
 export type CssLifecycleFactoryOptions = {
+    logger?: boolean | ILogger;
     loadTimeout?: number;
     failOnTimeout?: boolean;
     failOnError?: boolean;
 };
 ```
+
+> Refer to **Console Logging** previously in this document to see about the `logger` option.
 
 Set the `loadTimeout` property to the amount of time to wait for the `load` or `error` events to fire before taking 
 action.  Which action?  That depends on the other two properties.

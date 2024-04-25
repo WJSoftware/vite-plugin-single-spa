@@ -21,9 +21,27 @@ declare module 'vite-plugin-single-spa/ex' {
     };
 
     /**
+     * Defines the functionality required from custom logger objects.  Custom loggers are used to customize how and 
+     * what gets into the browser's console, if anything.
+     */
+    export type ILogger = {
+        debug: Console['debug'];
+        info: Console['info'];
+        warn: Console['warn'];
+        error: Console['error'];
+    }
+
+    /**
      * Options for the `cssLifecycleFactory` function.
      */
     export type CssLifecycleFactoryOptions = {
+        /**
+         * Specifies a logger object or a Boolean value that controls what gets logged to the browser's console.
+         * 
+         * Set it to `true` (or don't specify it at all) to log to the browser's console; set it to `false` to turn 
+         * off all logging to the console, or use it to pass a custom logger object to arbitrarily handle logging.
+         */
+        logger?: boolean | ILogger;
         /**
          * Specifies the amount of time to wait for a CSS LINK element to load before potentially aborting the mount 
          * operation.
