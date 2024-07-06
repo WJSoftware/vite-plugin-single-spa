@@ -2,6 +2,9 @@
 
 > Vite plug-in to convert Vite-based projects to single-spa root or micro-frontend applications.
 
+> [!IMPORTANT]
+> We are dropping support for Vite v4.  If this affects you, read [this discussion](https://github.com/WJSoftware/vite-plugin-single-spa/discussions/166).
+
 This Vite plug-in is an **opinionated** way of making Vite-based front-end projects work with 
 [single-spa](https://github.com/single-spa/single-spa).
 
