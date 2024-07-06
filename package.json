@@ -7,7 +7,7 @@
     "mocha": "^10.4.0",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.4.5",
+    "typescript": "^5.5.3",
     "vite": "^5.3.3"
   },
   "scripts": {
