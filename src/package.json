@@ -6,12 +6,12 @@
   "main": "index.js",
   "exports": {
     ".": {
-      "import": "./index.js",
-      "types": "./vite-plugin-single-spa.d.ts"
+      "types": "./vite-plugin-single-spa.d.ts",
+      "import": "./index.js"
     },
     "./ex": {
-      "import": "./ex/index.js",
-      "types": "./ex/index.d.ts"
+      "types": "./ex/index.d.ts",
+      "import": "./ex/index.js"
     }
   },
   "types": "vite-plugin-single-spa.d.ts",
