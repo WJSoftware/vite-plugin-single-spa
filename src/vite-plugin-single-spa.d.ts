@@ -100,6 +100,14 @@ declare module "vite-plugin-single-spa" {
          * `vpss(<project id>)<pattern>`.  The plug-in is smart enough to respect any folders in the pattern.
          */
         assetFileNames?: string;
+        /**
+         * Pattern that specifies how entry file names are constructed.  Its default value is 
+         * `[name].js`.
+         * 
+         * Refer to [Rollup's documentaiton](https://rollupjs.org/configuration-options/#output-entryfilenames) for 
+         * additional information.
+         */
+        entryFileNames?: string;
     } & DebuggingOptions;
 
     /**
