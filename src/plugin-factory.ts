@@ -178,7 +178,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             cfg.preview = {
                 port: plugInConfig.serverPort
             };
-            const entryFileNames = '[name].js';
+            const entryFileNames = plugInConfig.entryFileNames && '[name].js';
             const input: InputOption = {};
             let preserveEntrySignatures: PreserveEntrySignaturesOption;
             if (viteOpts.command === 'build') {
