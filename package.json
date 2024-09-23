@@ -8,7 +8,7 @@
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
-    "vite": "^5.4.6"
+    "vite": "^5.4.7"
   },
   "scripts": {
     "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts"
