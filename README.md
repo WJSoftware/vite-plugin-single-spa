@@ -2,9 +2,6 @@
 
 > Vite plug-in to convert Vite-based projects to single-spa root or micro-frontend applications.
 
-> [!IMPORTANT]
-> We are dropping support for Vite v4.  If this affects you, read [this discussion](https://github.com/WJSoftware/vite-plugin-single-spa/discussions/166).
-
 This Vite plug-in is an **opinionated** way of making Vite-based front-end projects work with 
 [single-spa](https://github.com/single-spa/single-spa).
 
@@ -51,7 +48,7 @@ export default defineConfig({
 The options passed to the plug-in factory function determine the type of project (root or micro-frontend).  For 
 micro-frontend projects, the server port is required, while for root projects the type is required.
 
-Additionally for micro-frontend projects, the file `src/spa.ts/js/jsx/tsx` must be created.  This file becomes the 
+Additionally for micro-frontend projects, the file `src/spa.ts|js|jsx|tsx` must be created.  This file becomes the 
 main export of the project and should export the `single-spa` lifecycle functions.
 
 ## single-spa Root Projects
@@ -95,13 +92,14 @@ mode.
 The `imo` option is used to control the inclusion of `import-map-overrides`.  Set it to `false` to exclude it; set to 
 `true` to include its latest version from **JSDelivr**.  However, production deployments should never let unknown 
 versions of packages to be loaded without prior testing, so it really isn't good practice to just say "include the 
-latest version".  Instead, specify the desired package version as a string.  The current recommended version of 
-`import-map-overrides` is **v3.1.1** (but always check for yourself).
+latest version".  Instead, specify the desired package version as a string.
+
+> Check for [releases of import-map-overrides](https://github.com/single-spa/import-map-overrides/releases).
 
 ```typescript
 vitePluginSingleSpa({
     type: 'root',
-    imo: '3.1.1'
+    imo: '4.2.0'
 })
 ```
 
@@ -116,7 +114,7 @@ returns the package's URL.
 ```typescript
 vitePluginSingleSpa({
     type: 'root',
-    imo: () => `https://my.cdn.example.com/import-map-overrides@3.1.1`
+    imo: () => `https://my.cdn.example.com/import-map-overrides@4.2.0`
 })
 ```
 
@@ -149,7 +147,7 @@ This is because, while using `npm run dev`, no bundling takes place, so we direc
 folder.
 
 Building the micro-frontend, on the other hand, produces a `spa.js` bundle at the root of the `dist` folder, so the 
-building import map would look like this:
+import map for builds would look like this:
 
 ```json
 {
@@ -193,7 +191,12 @@ because, and I quote:
 This is no longer the case as seen in the [caniuse](https://caniuse.com/?search=import%20map) website.
 
 If you're confused about all this import map type thing, read all about this import map topic in the 
-[import-map-overrides](https://github.com/single-spa/import-map-overrides) website.
+[import-map-overrides](https://github.com/single-spa/import-map-overrides) home page.
+
+**UPDATE**:  It seems that `single-spa` v7 is aiming towards working with native modules and native import maps, as 
+several peripheral tools have already received updates to default away from `SystemJS` (`create-single-spa`, for 
+instance).  What will the final shape be?  I don't know.  We'll have to wait and see when the time comes, and if this 
+plug-in continues to be required at all.
 
 #### Using More Import Map Files
 
@@ -336,8 +339,8 @@ is very important that the name passed to the factory coincides *exactly* with t
 The object created by the factory (in the example, stored in the `cssLc` variable), **must** be used for every 
 exported/created `single-spa` lifecycle object that comes out of the same file (module).
 
-**NOTE**:  The optional factory options control the behavior of the FOUC-prevention feature and control over what is 
-logged to the console.
+**NOTE**:  The optional factory options control the behavior of the FOUC-prevention feature and what is logged to the 
+console.
 
 ### Console Logging
 
@@ -364,6 +367,10 @@ multiple instances of the same parcel or micro-frontend, or export more than one
 If, however, your project simply exports a single micro-frontend or a single parcel that doesn't expect to be 
 instantiated more than once simultaneously, then `cssStrategy` can be set to `singleMife`, which is the default value 
 for this property.
+
+> **IMPORTANT**:  Most likely, the default value in v1.0.0 will be `multiMife`.  It is actually feasible that the 
+`singleMife` strategy might disappear completely, since nobody seems to be using `single-spa`'s `unloadApplication` 
+function.
 
 #### Deactivating CSS Mounting
 
@@ -413,8 +420,9 @@ The default values are, respectively, 1500ms, `false` and `false`.
 1. `single-spa`, by default, emits minified error message #31 if the mounting process takes 3000ms or more.  Avoid 
 setting `loadTimeout` to 3000ms or higher.
 2. The CSS mounting algorithm dismounts CSS by disabling CSS LINK elements, and then, if necessary, these are 
-re-enabled.  Even though a network call is generated in the Network tab of the developer tools, a `load` event is 
-never fired, meaning that FOUC prevention only works on the very first time the CSS is mounted.
+re-enabled.  Even though a network call might be generated in the Network tab of the developer tools at the time of 
+re-enabling, a `load` event is never fired, meaning that FOUC prevention can only work on the very first time the CSS 
+is mounted.
 
 ### Important Notes About Generating Multiple Instances of a Parcel or Micro-Frontend
 
@@ -439,6 +447,8 @@ The new algorithm is robust and seems to work just fine under the conditions set
 there is a price to pay:  This new algorithm is incompatible with the idea of using `single-spa`'s `unloadApplication` 
 for the purposes of HMR.  In order to allow people to keep the possibility of using `unloadApplication`, the user can 
 choose the `singleMife` strategy to keep this HMR ability.
+
+> **IMPORTANT, AGAIN**: Nobody seems to care about `unloadApplication`, so CSS strategies might disappear in v1.0.0.
 
 ## Vite Environment Information
 
@@ -487,7 +497,9 @@ understand how this plug-in works and the reasons behind its behavior.
 - [ ] Input file name pattern?
 - [ ] Specify import maps as objects instead of file names
 - [ ] Possibly remove the need for CSS strategies (modify `multiMife` so it can re-bootstrap safely)
-- [ ] CSS `blocking="render"` attribute on injected LINK elements (experimental feature)? Instead of `load` event to prevent FOUC.
+- [ ] CSS `blocking="render"` attribute on injected LINK elements (experimental feature)? Instead of `load` event to 
+prevent FOUC.
 - [ ] Allow media query specification for injected CSS LINK elements? (not sure if this is relevant to this plug-in)
 - [ ] Option to set development entry point? (there might be a simpler solution)
 - [ ] SvelteKit support for root projects?
+- [ ] Dual behavior for built projects, as in "this is a standalone website that can also be a MFE".
