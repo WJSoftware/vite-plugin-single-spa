@@ -1,13 +1,13 @@
 /// <reference path="../src/vite-plugin-single-spa.d.ts"/>
-import { AssertionError, expect } from 'chai';
+import { expect } from 'chai';
 import { describe, it } from 'mocha';
 import { pluginFactory } from '../src/plugin-factory.js';
 
-import type { SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMapsOption, ImoUiVariant, ImoUiOption, ImportMap } from "vite-plugin-single-spa";
-import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
-import type { PreserveEntrySignaturesOption, OutputOptions, RenderedChunk, PreRenderedAsset } from 'rollup';
-import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
 import path from 'path';
+import type { OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
+import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
+import type { ImoUiOption, ImoUiVariant, ImportMap, ImportMapsOption, SingleSpaMifePluginOptions, SingleSpaRootPluginOptions } from "vite-plugin-single-spa";
+import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
