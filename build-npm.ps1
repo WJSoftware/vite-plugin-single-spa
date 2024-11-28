@@ -10,10 +10,10 @@ Automates all of the necessary steps to compile and optionally publish the vite-
 3. Compiles the TypeScript source code and outputs it to .\out.
 4. Copies the vite-plugin-single-spa.d.ts definition file.
 5. Copies the package.json file.
-6. Prepares the npmjs.org readme file by joining PublishNote.md and README.md.
-7. If the Publish switch is specified, performs actual publishing to the NPM public registry.
+6. If the Publish switch is specified, performs actual publishing to the NPM public registry.
 
-NOTE:  If the Publish switch is not specified, then npm publish is run in dry-mode, just to show the potential result of publishing.
+NOTE:  If the Publish switch is not specified, then npm publish is run in dry-mode, just to show the potential result 
+of publishing.
 
 Use the Verbose switch to turn on all messages.
 
@@ -88,8 +88,7 @@ begin {
     }
     Copy-Item .\src\vite-plugin-single-spa.d.ts .\out
     Copy-Item .\src\package.json .\out
-    Copy-Item .\PublishNote.md .\out\README.md -Force
-    Get-Content .\README.md | Add-Content .\out\README.md -Encoding UTF8
+    Copy-Item .\README.md .\out -Force
     if (-not (Test-Path .\out\ex)) {
         New-Item .\out\ex -ItemType Directory
     }
