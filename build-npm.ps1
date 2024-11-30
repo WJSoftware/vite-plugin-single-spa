@@ -62,17 +62,15 @@ begin {
             Invoke-Call { npm run test }
         }
     }
-    [string] $path = Resolve-Path .\src\package.json
+    [string] $path = Resolve-Path .\package.json
     if ($VerUpgrade -ne '') {
         if ($PSCmdlet.ShouldProcess($path, "Package version increment: $VerUpgrade")) {
-            Set-Location .\src
             if ($PreId -ne '') {
                 npm version $VerUpgrade --preid $PreId --no-git-tag-version
             }
             else {
                 npm version $VerUpgrade --no-git-tag-version
             }
-            Set-Location ..\
         }
     }
     else {
@@ -87,18 +85,16 @@ begin {
         Invoke-Call { npx tsc }
     }
     Copy-Item .\src\vite-plugin-single-spa.d.ts .\out
-    Copy-Item .\src\package.json .\out
-    Copy-Item .\README.md .\out -Force
     if (-not (Test-Path .\out\ex)) {
         New-Item .\out\ex -ItemType Directory
     }
     Copy-Item .\src\ex.d.ts .\out\ex\index.d.ts
     if (!$Publish -and -not $WhatIfPreference) {
         Write-Output "Running npm publish in dry run mode."
-        npm publish .\out --dry-run
+        npm publish --dry-run
     }
     elseif ($PSCmdlet.ShouldProcess($path, "Publish NPM package")) {
-        npm publish .\out
+        npm publish
     }
     elseif ($WhatIfPreference) {
         Write-Verbose "NOTE: Running npm publish in dry run mode using sample data for illustration purposes only."

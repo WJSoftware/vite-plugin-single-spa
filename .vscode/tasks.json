@@ -2,10 +2,8 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"type": "shell",
-			"command": [
-				"./build-npm.ps1"
-			],
+			"type": "npm",
+			"script": "build",
 			"group": "build",
 			"problemMatcher": [],
 			"label": "Build",
@@ -20,7 +18,7 @@
 			},
 			"problemMatcher": [],
 			"label": "npm: test",
-			"detail": "Run unit tests"
+			"detail": "Run unit tests."
 		}
 	]
 }

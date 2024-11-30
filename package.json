@@ -1,17 +1,63 @@
 {
+  "name": "vite-plugin-single-spa",
+  "version": "0.8.1",
+  "description": "Vite plugin to convert Vite-based projects to single-spa root or micro-frontend applications.",
+  "type": "module",
+  "main": "out/index.js",
+  "exports": {
+    ".": {
+      "types": "./out/vite-plugin-single-spa.d.ts",
+      "import": "./out/index.js"
+    },
+    "./ex": {
+      "types": "./out/ex/index.d.ts",
+      "import": "./out/ex/index.js"
+    }
+  },
+  "types": "out/vite-plugin-single-spa.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WJSoftware/vite-plugin-single-spa.git"
+  },
+  "keywords": [
+    "vite",
+    "vite-plugin",
+    "single-spa",
+    "mife",
+    "mfe",
+    "micro-frontend",
+    "root-config"
+  ],
+  "author": {
+    "email": "webJose@gmail.com",
+    "name": "José Pablo Ramírez Vargas"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/WJSoftware/vite-plugin-single-spa/issues"
+  },
+  "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^v6.0.0"
+  },
   "devDependencies": {
     "@types/chai": "^5.0.1",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "chai": "^5.1.2",
     "mocha": "^10.8.2",
+    "publint": "^0.2.12",
+    "single-spa": "^6.0.0",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.1"
+    "typescript": "^5.7.2"
   },
   "scripts": {
-    "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts"
+    "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts",
+    "build": "powershell ./build-npm.ps1 && publint"
   },
-  "type": "module"
+  "files": [
+    "./out/**/*.js",
+    "./out/**/*.d.ts"
+  ]
 }
