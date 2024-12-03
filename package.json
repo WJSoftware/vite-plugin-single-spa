@@ -4,7 +4,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "chai": "^5.1.2",
-    "mocha": "^10.8.2",
+    "mocha": "^11.0.1",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2",
