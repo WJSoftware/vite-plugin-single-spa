@@ -38,7 +38,7 @@
   },
   "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
   "peerDependencies": {
-    "vite": "^5.0.0 || ^v6.0.0"
+    "vite": "^5.0.0 || ^6.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.0.1",
