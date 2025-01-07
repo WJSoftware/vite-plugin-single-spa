@@ -54,10 +54,15 @@
   },
   "scripts": {
     "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts",
-    "build": "powershell ./build-npm.ps1 && publint"
+    "build": "powershell ./build-npm.ps1 && publint",
+    "bash-build": "./build.sh && publint"
   },
   "files": [
     "./out/**/*.js",
     "./out/**/*.d.ts"
-  ]
+  ],
+  "dependencies": {
+    "rollup": "^4.30.0",
+    "vite": "^6.0.7"
+  }
 }

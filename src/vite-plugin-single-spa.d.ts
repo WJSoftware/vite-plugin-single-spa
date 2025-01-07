@@ -119,6 +119,11 @@ declare module "vite-plugin-single-spa" {
          * File name or array of file names of the import map or maps to be used while building.
          */
         build?: string | string[];
+
+        /**
+         * File name or array of file names of the import map or maps to be used while building.
+         */
+        [env: string]: string | string[] | undefined;
     };
 
     /**
