@@ -44,7 +44,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.0",
     "chai": "^5.1.2",
-    "mocha": "^10.8.2",
+    "mocha": "^11.0.1",
     "publint": "^0.3.0",
     "single-spa": "^6.0.0",
     "ts-mocha": "^10.0.0",
