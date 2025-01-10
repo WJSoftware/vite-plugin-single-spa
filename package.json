@@ -10,8 +10,7 @@
       "import": "./out/index.js"
     },
     "./ex": {
-      "types": "./out/ex/index.d.ts",
-      "import": "./out/ex/index.js"
+      "types": "./out/ex/index.d.ts"
     }
   },
   "types": "out/vite-plugin-single-spa.d.ts",
@@ -38,7 +37,7 @@
   },
   "homepage": "https://github.com/WJSoftware/vite-plugin-single-spa#readme",
   "peerDependencies": {
-    "vite": "^5.0.0 || ^v6.0.0"
+    "vite": "^5.0.0 || ^6.0.0"
   },
   "devDependencies": {
     "@types/chai": "^5.0.1",

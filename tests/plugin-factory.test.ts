@@ -297,7 +297,8 @@ describe('vite-plugin-single-spa', () => {
             await (plugIn.config as ConfigHandler)({}, env);
 
             // Act
-            const resolvedId = (plugIn.resolveId as ResolveIdHandler)(source);
+            // @ts-expect-error
+            const resolvedId = (plugIn.resolveId?.handler as ResolveIdHandler)(source);
 
             // Assert.
             expect(resolvedId).to.equal(expectedResult);
