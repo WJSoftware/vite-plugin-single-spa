@@ -10,8 +10,7 @@
       "import": "./out/index.js"
     },
     "./ex": {
-      "types": "./out/ex/index.d.ts",
-      "import": "./out/ex/index.js"
+      "types": "./out/ex/index.d.ts"
     }
   },
   "types": "out/vite-plugin-single-spa.d.ts",
