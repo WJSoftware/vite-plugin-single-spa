@@ -45,7 +45,7 @@
     "@types/node": "^22.10.0",
     "chai": "^5.1.2",
     "mocha": "^10.8.2",
-    "publint": "^0.2.12",
+    "publint": "^0.3.0",
     "single-spa": "^6.0.0",
     "ts-mocha": "^10.0.0",
     "ts-node": "^10.9.2",
