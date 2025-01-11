@@ -69,8 +69,8 @@ export type SingleSpaRootPluginOptions = {
     type: 'root';
     importMaps?: {
         type?: 'importmap' | 'overridable-importmap' | 'systemjs-importmap' | 'importmap-shim';
-        dev?: string | string[];
-        build?: string | string[];
+        dev?: string | string[] | Record<string, any>;
+        build?: string | string[] | Record<string, any>;
     };
     imo?: boolean | string | (() => string);
     imoUi?: boolean | 'full' | 'popup' | 'list' | {
