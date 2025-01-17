@@ -370,11 +370,14 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 }
                 return {};
             },
-            resolveId(source, _importer, _options) {
-                if (source === extensionModuleName || source === cssHelpersModuleName) {
-                    return source;
+            resolveId: {
+                order: 'pre',
+                handler(source, _importer, _options) {
+                    if (source === extensionModuleName || source === cssHelpersModuleName) {
+                        return source;
+                    }
+                    return null;
                 }
-                return null;
             },
             async load(id, _options) {
                 if (id === extensionModuleName) {
