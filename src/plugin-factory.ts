@@ -106,33 +106,72 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
 
         /**
          * Loads the import map files (JSON files) that are pertinent to the occasion.
-         * @param command Vite command (serve or build).
-         * @returns An array of string values, where each value is the content of one import map file.
+         * By default, if `environmentName` is not provided, it falls back to using:
+         *  - `importMaps.dev` when `command === 'serve'`
+         *  - `importMaps.build` when `command === 'build'`
+         *
+         * @param command - Vite command (serve or build).
+         * @param environmentName - Optional environment name to override the default "dev"/"build" keys.
+         * @returns An array of string values, where each value is the content of one import map file, or `null` if none found.
          */
-        async function loadImportMaps(command: ConfigEnv['command']) {
-            const cfg = config as SingleSpaRootPluginOptions;
-            let fileCfg = command === 'serve' ? cfg.importMaps?.dev : cfg.importMaps?.build;
-            const defaultFile = fileExists('src/importMap.dev.json') ? 'src/importMap.dev.json' : 'src/importMap.json';
-            if (fileCfg === undefined || typeof fileCfg === 'string') {
-                const mapFile = command === 'serve' ?
-                    (fileCfg ?? defaultFile) :
-                    (fileCfg ?? 'src/importMap.json');
-                if (!fileExists(mapFile)) {
-                    return null;
-                }
-                const contents = await readFile(mapFile, {
-                    encoding: 'utf8'
-                }) as string;
-                return [contents];
+        async function loadImportMaps(
+          command: ConfigEnv['command'],
+          environmentName?: string
+        ) {
+          const cfg = config as SingleSpaRootPluginOptions;
+
+          // 1. Determine which key to use in the importMaps config.
+          //    If environmentName is provided, use that. Otherwise, fallback to dev/build.
+          let fileCfg: string | string[] | undefined;
+          if (environmentName) {
+            fileCfg = cfg.importMaps?.[environmentName];
+          } else {
+            fileCfg = command === 'serve' ? cfg.importMaps?.dev : cfg.importMaps?.build;
+          }
+
+          // 2. Decide on a default file if the config is undefined or a single file is missing.
+          //    For convenience, we use src/importMap.dev.json if it exists, otherwise src/importMap.json,
+          //    except in the build scenario where we might want to default to src/importMap.json.
+          const devDefault = fileExists('src/importMap.dev.json')
+            ? 'src/importMap.dev.json'
+            : 'src/importMap.json';
+
+          // If there's no config or it's a single string, handle it the same way
+          if (fileCfg === undefined || typeof fileCfg === 'string') {
+            // If there's a single path or undefined, figure out which default to use
+            const mapFile =
+              fileCfg ??
+              // If an environmentName is explicitly provided (not dev/build), you can decide
+              // which file to default to. For simplicity, use src/importMap.json:
+              (environmentName
+                ? 'src/importMap.json'
+                : // Otherwise, if no environmentName, fallback to dev vs. build
+                command === 'serve'
+                ? devDefault
+                : 'src/importMap.json');
+
+            if (!fileExists(mapFile)) {
+              return null;
             }
-            else {
-                const fileContents: string[] = [];
-                for (let f of fileCfg) {
-                    const contents = await readFile(f, { encoding: 'utf8' }) as string;
-                    fileContents.push(contents);
-                }
-                return fileContents;
+            const contents = (await readFile(mapFile, {
+              encoding: 'utf8',
+            })) as string;
+            return [contents];
+          }
+
+          // 3. Otherwise, if fileCfg is an array, loop through all files
+          //    and read them, ignoring any that do not exist.
+          const fileContents: string[] = [];
+          for (const f of fileCfg) {
+            if (!fileExists(f)) {
+              // You may want to warn or skip silently:
+              console.warn(`Import map file does not exist: ${f}`);
+              continue;
             }
+            const contents = (await readFile(f, { encoding: 'utf8' })) as string;
+            fileContents.push(contents);
+          }
+          return fileContents.length > 0 ? fileContents : null;
         }
 
         /**
@@ -228,71 +267,88 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          * @returns An IndexHtmlTransformResult object that includes the necessary transformation in root projects.
          */
         async function rootIndexTransform(html: string) {
-            const cfg = config as SingleSpaRootPluginOptions;
-            const importMapContents = await loadImportMaps(viteEnv.command);
-            let importMap: Required<ImportMap> | undefined = undefined;
-            if (importMapContents) {
-                importMap = buildImportMap(importMapContents.map(t => JSON.parse(t)));
+          const cfg = config as SingleSpaRootPluginOptions;
+
+          // Maybe you get your environment name from process.env, Vite's mode, etc.
+          // For demonstration, let's pick it from an env variable or fallback to dev/build logic
+          const customEnv = process.env.IMPORT_MAP_ENV; // e.g. "staging", "qa", "something-else"
+
+          // If customEnv is defined, it will override dev/build logic;
+          // otherwise it will default to serve → dev, build → build
+          const importMapContents = await loadImportMaps(viteEnv.command, customEnv);
+
+          let importMap: Required<ImportMap> | undefined;
+          if (importMapContents) {
+            importMap = buildImportMap(importMapContents.map((t) => JSON.parse(t)));
+          }
+
+          const tags: HtmlTagDescriptor[] = [];
+
+          if (importMap) {
+            tags.push({
+              tag: 'script',
+              attrs: {
+                type: cfg.importMaps?.type ?? 'overridable-importmap',
+              },
+              children: JSON.stringify(importMap, null, 2),
+              injectTo: 'head-prepend',
+            });
+          }
+
+          if (cfg.imo !== false && importMap) {
+            let imoVersion = 'latest';
+            if (typeof cfg.imo === 'string') {
+              imoVersion = cfg.imo;
             }
-            const tags: HtmlTagDescriptor[] = [];
-            if (importMap) {
-                tags.push({
-                    tag: 'script',
-                    attrs: {
-                        type: cfg.importMaps?.type ?? 'overridable-importmap',
-                    },
-                    children: JSON.stringify(importMap, null, 2),
-                    injectTo: 'head-prepend',
-                });
-            }
-            if (cfg.imo !== false && importMap) {
-                let imoVersion = 'latest';
-                if (typeof cfg.imo === 'string') {
-                    imoVersion = cfg.imo;
-                }
-                const imoUrl = typeof cfg.imo === 'function' ? cfg.imo() : `https://cdn.jsdelivr.net/npm/import-map-overrides@${imoVersion}/dist/import-map-overrides.js`;
-                tags.push({
-                    tag: 'script',
-                    attrs: {
-                        type: 'text/javascript',
-                        src: imoUrl
-                    },
-                    injectTo: 'head-prepend'
-                });
-            }
-            let imoUiCfg: ImoUiOption = {
-                buttonPos: 'bottom-right',
-                localStorageKey: 'imo-ui',
-                variant: 'full'
+            const imoUrl =
+              typeof cfg.imo === 'function'
+                ? cfg.imo()
+                : `https://cdn.jsdelivr.net/npm/import-map-overrides@${imoVersion}/dist/import-map-overrides.js`;
+            tags.push({
+              tag: 'script',
+              attrs: {
+                type: 'text/javascript',
+                src: imoUrl,
+              },
+              injectTo: 'head-prepend',
+            });
+          }
+
+          let imoUiCfg: ImoUiOption = {
+            buttonPos: 'bottom-right',
+            localStorageKey: 'imo-ui',
+            variant: 'full',
+          };
+
+          if (typeof cfg.imoUi === 'object') {
+            imoUiCfg = {
+              ...imoUiCfg,
+              ...cfg.imoUi,
             };
-            if (typeof cfg.imoUi === 'object') {
-                imoUiCfg = {
-                    ...imoUiCfg,
-                    ...cfg.imoUi
-                };
+          } else if (cfg.imoUi !== undefined) {
+            imoUiCfg.variant = cfg.imoUi;
+          }
+
+          if (imoUiCfg.variant && importMap) {
+            imoUiCfg.variant = imoUiCfg.variant === true ? 'full' : imoUiCfg.variant;
+            let attrs: Record<string, string | boolean | undefined> | undefined;
+            if (imoUiCfg.variant === 'full') {
+              attrs = {
+                'trigger-position': imoUiCfg.buttonPos,
+                'show-when-local-storage': imoUiCfg.localStorageKey,
+              };
             }
-            else if (cfg.imoUi !== undefined) {
-                imoUiCfg.variant = cfg.imoUi;
-            }
-            if (imoUiCfg.variant && importMap) {
-                imoUiCfg.variant = imoUiCfg.variant === true ? 'full' : imoUiCfg.variant;
-                let attrs: Record<string, string | boolean | undefined> | undefined = undefined;
-                if (imoUiCfg.variant === 'full') {
-                    attrs = {
-                        'trigger-position': imoUiCfg.buttonPos,
-                        'show-when-local-storage': imoUiCfg.localStorageKey
-                    };
-                }
-                tags.push({
-                    tag: `import-map-overrides-${imoUiCfg.variant}`,
-                    attrs,
-                    injectTo: 'body'
-                });
-            }
-            return {
-                html,
-                tags
-            };
+            tags.push({
+              tag: `import-map-overrides-${imoUiCfg.variant}`,
+              attrs,
+              injectTo: 'body',
+            });
+          }
+
+          return {
+            html,
+            tags,
+          };
         }
 
         return {
