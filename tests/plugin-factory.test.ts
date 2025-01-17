@@ -986,6 +986,48 @@ describe('vite-plugin-single-spa', () => {
                 throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
             }
         });
+
+        it('Should not load and inject custom import map when environment variable is not set.', async () => {
+            const fileName = 'src/importMap.staging.json';
+            const fileExists = (x: string) => x === fileName;
+            const importMap = {
+                imports: {
+                    '@a/b': 'cd'
+                },
+                scopes: {
+                    pickyModule: {
+                        '@a/b': 'ef'
+                    }
+                }
+            };
+            let fileReadCount = 0;
+            const readFile = (x: string, _opts: any) => {
+                ++fileReadCount;
+                if (x !== fileName) {
+                    throw new Error(`File not found: ${x}`);
+                }
+                return Promise.resolve(JSON.stringify(importMap));
+            }
+            const plugin = pluginFactory(readFile, fileExists)({ type: 'root', importMaps: { staging: "src/importMap.staging.json"} });
+            const env: ConfigEnv = { command: 'build', mode: 'development' };
+            await (plugin.config as ConfigHandler)({}, env);
+            const ctx = { path: '', filename: '' };
+
+            // Act.
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+
+            // Assert.
+            expect(fileReadCount).to.equal(0);
+            expect(xForm).to.not.equal(null);
+            expect(xForm).to.not.equal(undefined);
+            if (xForm && typeof xForm !== 'string' && !Array.isArray(xForm)) {
+                expect(xForm.tags).to.have.lengthOf(0);
+            }
+            else {
+                throw new Error('TypeScript narrowing suddenly routed the test elsewhere!');
+            }
+        });
+
         const defaultImportMapTest = async (fileName: string, viteCmd: ConfigEnv['command']) => {
             // Arrange.
             const fileExists = (x: string) => x === fileName;
