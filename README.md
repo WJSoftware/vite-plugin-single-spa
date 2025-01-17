@@ -133,6 +133,36 @@ in `serve` mode (when you run the project with `npm run dev`), or the file `src/
 `build` mode (when you run `npm run build`).  Note, however, that if you have no need to have different import maps, 
 then you can omit `src/importMap.dev.json` and just create `src/importMap.json`.
 
+#### Environment-Specific Import Maps
+
+The plugin also supports environment-specific import maps using the `IMPORT_MAP_ENV` environment variable. If this variable is set, the plugin will attempt to load an import map tailored to the specified environment. The selection process works as follows:
+
+1. **Environment Variable Check**:  
+   If `IMPORT_MAP_ENV` is set (e.g., to `"staging"`), the plugin will first look for a corresponding configuration under `importMaps[staging]` in your plugin options. If found, it will use the specified file(s).
+
+2. **Fallback to Defaults**:  
+   If no specific configuration is provided for the environment, the plugin falls back to its standard behavior:
+   - In `serve` mode, it will attempt to load from `src/importMap.dev.json` (or the file specified under `importMaps.dev`).
+   - In `build` mode, it will attempt to load from `src/importMap.json` (or the file specified under `importMaps.build`).
+
+3. **Usage Example for Staging**:  
+   - Create an import map file for your staging environment, such as `src/importMap.staging.json`.
+   - Optionally, add a configuration entry for the staging environment:
+     ```js
+     importMaps: {
+       staging: 'src/importMap.staging.json'
+     }
+     ```
+   - Set the environment variable and run:
+     ```sh
+     export IMPORT_MAP_ENV=staging
+     npm run build
+     ```
+   The plugin will detect the `IMPORT_MAP_ENV` variable, load the `src/importMap.staging.json` file, and inject its contents as the import map.
+
+This flexibility allows you to handle complex scenarios with multiple environments having unique import maps while maintaining a simple default configuration for most cases.
+
+
 Usually, the development import map would look like this:
 
 ```json

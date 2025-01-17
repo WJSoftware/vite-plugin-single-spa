@@ -58,9 +58,5 @@
   "files": [
     "./out/**/*.js",
     "./out/**/*.d.ts"
-  ],
-  "dependencies": {
-    "rollup": "^4.30.0",
-    "vite": "^6.0.7"
-  }
+  ]
 }
