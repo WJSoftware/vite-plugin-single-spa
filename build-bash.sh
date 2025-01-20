@@ -30,7 +30,7 @@ mkdir -p ./out/ex
 cp ./src/ex.d.ts ./out/ex/index.d.ts
 
 # Publish or dry run publish
-if [ "$PUBLISH" = "true" ]; then
+if [ "$PUBLISH" = "true" && "$SKIP_TESTS" != "true" ]; then
   echo "Publishing npm package..."
   npm publish
 else
