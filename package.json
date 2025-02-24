@@ -53,7 +53,8 @@
   },
   "scripts": {
     "test": "ts-mocha -n loader=ts-node/esm -p ./tsconfig.json ./tests/**/*.test.ts",
-    "build": "powershell ./build-npm.ps1 && publint"
+    "build": "powershell ./build-npm.ps1 && publint",
+    "build-bash": "./build-bash.sh && publint"
   },
   "files": [
     "./out/**/*.js",
