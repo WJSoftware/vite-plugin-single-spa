@@ -5,6 +5,20 @@
 This Vite plug-in is an **opinionated** way of making Vite-based front-end projects work with 
 [single-spa](https://github.com/single-spa/single-spa).
 
+> [!IMPORTANT]
+> Due to false accusations raised against me by the author of `single-spa` Jolyn Denning, I will discontinue this 
+> plug-in.  As of today, 2025-04-13, this plug-in will only accept bug reports and will only get bug fixes.  No new 
+> features will be developed for this plug-in.
+> 
+> For reference, this is what Jolyn wrote at the `single-spa` Slack channel.
+> ![Jolyn Denning's Message](docs/Jolyn%20Denning.png)
+> 
+> Whatever problems Jolyn may be going through right now do not invalidate `single-spa`, at least as of the current 
+> version.  I will not, however, continue the journey as `single-spa` progresses (if it progresses at all).
+> 
+> I will instead be publishing a new library for micro-frontends since I still have the need at work.  I will be 
+> pushing `single-spa` out of my work projects because I fear the long term stability of `single-spa`.
+
 ## Quickstart
 
 > **NOTE**:  This document assumes the use of TypeScript Vite projects.  However, all of this applies to JavaScript 
@@ -494,12 +508,4 @@ understand how this plug-in works and the reasons behind its behavior.
 - [x] Asset file name pattern
 - [x] CSS `load` event to prevent FOUC
 - [x] Logger object for cssLifecycleFactory to allow full control of what renders in the console
-- [ ] Input file name pattern?
-- [ ] Specify import maps as objects instead of file names
-- [ ] Possibly remove the need for CSS strategies (modify `multiMife` so it can re-bootstrap safely)
-- [ ] CSS `blocking="render"` attribute on injected LINK elements (experimental feature)? Instead of `load` event to 
-prevent FOUC.
-- [ ] Allow media query specification for injected CSS LINK elements? (not sure if this is relevant to this plug-in)
-- [ ] Option to set development entry point? (there might be a simpler solution)
-- [ ] SvelteKit support for root projects?
-- [ ] Dual behavior for built projects, as in "this is a standalone website that can also be a MFE".
+- [x] Closed to further enhancements.
