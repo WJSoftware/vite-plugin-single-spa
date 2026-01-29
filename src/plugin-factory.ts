@@ -350,29 +350,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             logData += markdownCodeBlock(formatData("options: %o", options));
                             logData += markdownCodeBlock(formatData("meta: %o", meta));
                         }
-                        if (chunk.isEntry && !isRootConfig(config) && config.cssStrategy !== 'none') {
-                            // Recursively collect all CSS files that this entry point might need.
-                            const cssFiles = new Set<string>();
-                            const processedImports = new Set<string>();
-                            const collectCssFiles = (curChunk: RenderedChunk) => {
-                                if (!curChunk) {
-                                    return;
-                                }
-                                curChunk.viteMetadata?.importedCss.forEach(css => cssFiles.add(css));
-                                for (let imp of curChunk.imports) {
-                                    if (processedImports.has(imp)) {
-                                        continue;
-                                    }
-                                    processedImports.add(imp);
-                                    collectCssFiles(meta.chunks[imp]);
-                                }
-                            };
-                            collectCssFiles(chunk);
-                            cssMap[chunk.name] = [];
-                            for (let css of cssFiles.values()) {
-                                cssMap[chunk.name].push(css);
-                            }
-                        }
+                        // NOTE: CSS collection moved to generateBundle hook for Vite 7 compatibility.
+                        // In Vite 7, viteMetadata.importedCss is not populated until after renderChunk completes.
                     }
                     catch (error) {
                         errorOccurred = true;
@@ -391,6 +370,34 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     await closeLog();
                 }
                 if (!isRootConfig(config) && config.cssStrategy !== 'none') {
+                    // Collect CSS files from entry chunks.
+                    // This is done here instead of renderChunk because in Vite 7,
+                    // viteMetadata.importedCss is not populated until after renderChunk.
+                    for (let x in bundle) {
+                        const chunk = bundle[x];
+                        if (chunk.type === 'chunk' && chunk.isEntry) {
+                            const cssFiles = new Set<string>();
+                            const processedImports = new Set<string>();
+                            const collectCssFiles = (curChunk: RenderedChunk) => {
+                                if (!curChunk) {
+                                    return;
+                                }
+                                curChunk.viteMetadata?.importedCss?.forEach(css => cssFiles.add(css));
+                                for (let imp of curChunk.imports || []) {
+                                    if (processedImports.has(imp)) {
+                                        continue;
+                                    }
+                                    processedImports.add(imp);
+                                    collectCssFiles(bundle[imp] as RenderedChunk);
+                                }
+                            };
+                            collectCssFiles(chunk);
+                            cssMap[chunk.name] = [];
+                            for (let css of cssFiles.values()) {
+                                cssMap[chunk.name].push(css);
+                            }
+                        }
+                    }
                     const stringifiedCssMap = JSON.stringify(JSON.stringify(cssMap));
                     for (let x in bundle) {
                         const entry = bundle[x];
