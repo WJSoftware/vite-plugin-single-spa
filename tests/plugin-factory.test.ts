@@ -525,12 +525,21 @@ describe('vite-plugin-single-spa', () => {
             for (let ch of chunks) {
                 await (plugIn.renderChunk as RenderChunkHandler).handler('', ch, {}, meta);
             }
-            const bundle = {
+            // Build the bundle object with all chunks for generateBundle.
+            // In Vite 7+, CSS collection happens in generateBundle where viteMetadata.importedCss
+            // is fully populated, so the bundle must include all chunks with their metadata.
+            const bundle: Record<string, any> = {
                 'a.js': {
                     type: 'chunk',
                     code: '"{vpss:CSS_MAP}"'
                 }
             };
+            for (let ch of chunks) {
+                bundle[ch.fileName] = {
+                    ...ch,
+                    type: 'chunk'
+                };
+            }
 
             // Act.
             await (plugIn.generateBundle as GenerateBundleHandler)({}, bundle);
