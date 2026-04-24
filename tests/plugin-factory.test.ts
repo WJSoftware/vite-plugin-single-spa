@@ -1,19 +1,29 @@
 /// <reference path="../src/vite-plugin-single-spa.d.ts"/>
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
+import { expect, it, describe } from "vitest";
 import { pluginFactory } from '../src/plugin-factory.js';
 
 import path from 'path';
-import type { OutputOptions, PreRenderedAsset, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
-import type { ConfigEnv, HtmlTagDescriptor, IndexHtmlTransformHook, UserConfig } from 'vite';
+import type { ConfigEnv, HtmlTagDescriptor, Rollup, UserConfig } from 'vite';
 import type { ImoUiOption, ImoUiVariant, ImportMap, ImportMapsOption, SingleSpaMifePluginOptions, SingleSpaRootPluginOptions } from "vite-plugin-single-spa";
 import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
 type ResolveIdHandler = (this: void, source: string) => string;
 type LoadHandler = (this: void, id: string) => Promise<string>;
-type RenderChunkHandler = { handler: (this: void, code: string, chunk: RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, RenderedChunk> }) => Promise<any> };
+type RenderChunkHandler = { handler: (this: void, code: string, chunk: Rollup.RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, Rollup.RenderedChunk> }) => Promise<any> };
 type GenerateBundleHandler = (this: void, options: any, bundle: Record<string, any>) => Promise<void>;
+type IndexHtmlTransformHandler = (html: string, ctx: { path: string, filename: string }) => Promise<any> | any;
+type TestChunkMetadata = {
+    importedAssets: Set<string>;
+    importedCss: Set<string>;
+};
+type TestRenderedChunk = {
+    name: string;
+    fileName: string;
+    isEntry: boolean;
+    imports: string[];
+    viteMetadata?: TestChunkMetadata;
+};
 
 const viteCommands: ConfigEnv['command'][] = [
     'serve',
@@ -116,7 +126,7 @@ describe('vite-plugin-single-spa', () => {
         };
         it('Should specify the input "spa" on build under the rollup options.', () => inputTest('spa', 'build'));
         it('Should specify the input "index" on serve under the rollup options.', () => inputTest('index', 'serve'));
-        const entrySignatureTest = async (viteCmd: ConfigEnv['command'], expectedPropValue: PreserveEntrySignaturesOption) => {
+        const entrySignatureTest = async (viteCmd: ConfigEnv['command'], expectedPropValue: false | 'strict' | 'allow-extension' | 'exports-only') => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4111 };
             const readFile = (fileName: string, _opts: any) => {
@@ -138,7 +148,7 @@ describe('vite-plugin-single-spa', () => {
         };
         it('Should set preserveEntrySignatures to "exports-only" on build under the rollup options.', () => entrySignatureTest('build', 'exports-only'));
         it('Should set preserveEntrySignatures to false on serve under the rollup options.', () => entrySignatureTest('serve', false));
-        const fileNamesTest = async (propName: keyof OutputOptions) => {
+        const fileNamesTest = async (propName: keyof Rollup.OutputOptions) => {
             // Arrange.
             const options: SingleSpaMifePluginOptions = { serverPort: 4111 };
             const readFile = (fileName: string, _opts: any) => {
@@ -156,7 +166,7 @@ describe('vite-plugin-single-spa', () => {
             // Assert.
             const outputOpts = config?.build?.rollupOptions?.output;
             expect(outputOpts).to.not.equal(undefined);
-            const fileNameSetting = (outputOpts as OutputOptions)[propName];
+            const fileNameSetting = (outputOpts as Rollup.OutputOptions)[propName];
             expect(fileNameSetting).to.not.match(/\[hash\]/);
         };
         it("Should set the output's entry file names to a hash-less pattern.", () => fileNamesTest('entryFileNames'));
@@ -176,14 +186,14 @@ describe('vite-plugin-single-spa', () => {
             const config = await (plugIn.config as ConfigHandler)({}, env);
 
             // Assert.
-            const fn = (config.build?.rollupOptions?.output as OutputOptions).assetFileNames;
+            const fn = (config.build?.rollupOptions?.output as Rollup.OutputOptions).assetFileNames;
             if (typeof fn !== 'function') {
                 expect(fn).to.equal(cssExpectation);
                 expect(fn).to.equal(nonCssExpectation);
             }
             else {
-                expect(fn({ name: 'a.css' } as PreRenderedAsset)).to.equal(cssExpectation);
-                expect(fn({ name: 'b.jpg' } as PreRenderedAsset)).to.equal(nonCssExpectation);
+                expect(fn({ name: 'a.css' } as Rollup.PreRenderedAsset)).to.equal(cssExpectation);
+                expect(fn({ name: 'b.jpg' } as Rollup.PreRenderedAsset)).to.equal(nonCssExpectation);
             }
         };
         const assetFileNameTestData: {
@@ -488,7 +498,7 @@ describe('vite-plugin-single-spa', () => {
                     importedCss: buildSet(['A.css'])
                 }
             };
-            const meta: { chunks: Record<string, RenderedChunk> } = {
+            const meta: { chunks: Record<string, Rollup.RenderedChunk> } = {
                 chunks: {}
             };
             await (plugIn.config as ConfigHandler)({}, env);
@@ -496,7 +506,7 @@ describe('vite-plugin-single-spa', () => {
             // Act.
             let caughtError = false;
             try {
-                await (plugIn.renderChunk as RenderChunkHandler).handler('', chunk as RenderedChunk, {}, meta);
+                await (plugIn.renderChunk as RenderChunkHandler).handler('', chunk as Rollup.RenderedChunk, {}, meta);
             }
             catch (err) {
                 caughtError = true;
@@ -505,7 +515,7 @@ describe('vite-plugin-single-spa', () => {
             // Assert.
             expect(caughtError).to.equal(false);
         });
-        const cssMapInsertionTest = async (chunks: RenderedChunk[], expectedMap: Record<string, string[]>) => {
+        const cssMapInsertionTest = async (chunks: TestRenderedChunk[], expectedMap: Record<string, string[]>) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -515,15 +525,15 @@ describe('vite-plugin-single-spa', () => {
             };
             const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
             const env: ConfigEnv = { command: 'build', mode: 'production' };
-            const meta: { chunks: Record<string, RenderedChunk> } = {
+            const meta: { chunks: Record<string, Rollup.RenderedChunk> } = {
                 chunks: {}
             };
             for (let ch of chunks) {
-                meta.chunks[ch.fileName] = ch;
+                meta.chunks[ch.fileName] = ch as Rollup.RenderedChunk;
             }
             await (plugIn.config as ConfigHandler)({}, env);
             for (let ch of chunks) {
-                await (plugIn.renderChunk as RenderChunkHandler).handler('', ch, {}, meta);
+                await (plugIn.renderChunk as RenderChunkHandler).handler('', ch as Rollup.RenderedChunk, {}, meta);
             }
             // Build the bundle object with all chunks for generateBundle.
             // In Vite 7+, CSS collection happens in generateBundle where viteMetadata.importedCss
@@ -549,7 +559,7 @@ describe('vite-plugin-single-spa', () => {
             expect(calculatedCssMap).to.deep.equal(expectedMap);
         };
         const buildSet = (items?: string[]) => new Set(items);
-        const cssMapInsertionTestData: { chunks: Partial<RenderedChunk>[]; text: string; expectedMap: Record<string, string[]>; }[] = [
+        const cssMapInsertionTestData: { chunks: TestRenderedChunk[]; text: string; expectedMap: Record<string, string[]>; }[] = [
             {
                 chunks: [
                     {
@@ -809,7 +819,7 @@ describe('vite-plugin-single-spa', () => {
             },
         ];
         for (let tc of cssMapInsertionTestData) {
-            it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks as RenderedChunk[], tc.expectedMap));
+            it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks, tc.expectedMap));
         }
         it("Should insert the package's name in the chunks that require it.", async () => {
             // Arrange.
@@ -940,7 +950,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -982,7 +992,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(fileReadCount).to.equal(0);
@@ -1023,7 +1033,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(fileRead).to.equal(true);
@@ -1089,7 +1099,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(fileRead).to.equal(true);
@@ -1145,7 +1155,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(Object.keys(fileRead).length).to.equal(2);
@@ -1253,7 +1263,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1300,7 +1310,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1331,7 +1341,7 @@ describe('vite-plugin-single-spa', () => {
             await (plugin.config as ConfigHandler)({}, env);
 
             // Act.
-            const order = (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).order;
+            const order = (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).order;
 
             // Assert.
             expect(order).to.equal('post');
@@ -1359,7 +1369,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1396,7 +1406,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1433,7 +1443,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1469,7 +1479,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1524,7 +1534,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1583,7 +1593,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1619,7 +1629,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1672,7 +1682,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1722,7 +1732,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1767,7 +1777,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1807,7 +1817,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
@@ -1854,7 +1864,7 @@ describe('vite-plugin-single-spa', () => {
             const ctx = { path: '', filename: '' };
 
             // Act.
-            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHook }).handler('', ctx);
+            const xForm = await (plugin.transformIndexHtml as { order: any, handler: IndexHtmlTransformHandler }).handler('', ctx);
 
             // Assert.
             expect(xForm).to.not.equal(null);
