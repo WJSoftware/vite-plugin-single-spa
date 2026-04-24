@@ -1,0 +1,16 @@
+name: Feature PR Workflow
+
+on:
+  pull_request:
+    branches:
+    - '**'
+
+jobs:
+  test:
+    name: Unit Testing
+    uses: WJSoftware/cicd/.github/workflows/npm-test.yml@v0.4
+    secrets: inherit
+    with:
+      build: false
+      pwsh: false
+      node-version: '24'
