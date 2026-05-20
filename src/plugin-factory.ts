@@ -1,9 +1,9 @@
-import { promises as fs, existsSync, write } from 'fs';
+import { promises as fs, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import type { HtmlTagDescriptor, IndexHtmlTransformResult } from 'vite';
 import type { Plugin, ConfigEnv, UserConfig } from 'vite';
-import type { InputOption, PreserveEntrySignaturesOption, RenderedChunk } from 'rollup';
+import type { Rollup } from 'vite';
 import type { SingleSpaPluginOptions, SingleSpaRootPluginOptions, SingleSpaMifePluginOptions, ImportMap, ImoUiOption, DebuggingOptions } from "vite-plugin-single-spa";
 import { cssHelpersModuleName, extensionModuleName } from './ex-defs.js';
 import { closeLog, formatData, markdownCodeBlock, openLog, writeToLog } from './debug.js';
@@ -179,8 +179,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                 port: plugInConfig.serverPort
             };
             const entryFileNames = '[name].js';
-            const input: InputOption = {};
-            let preserveEntrySignatures: PreserveEntrySignaturesOption;
+            const input: Rollup.InputOption = {};
+            let preserveEntrySignatures: false | 'strict' | 'allow-extension' | 'exports-only';
             if (viteOpts.command === 'build') {
                 let entryPoints = plugInConfig?.spaEntryPoints ?? 'src/spa.ts';
                 if (typeof entryPoints === 'string') {
@@ -378,7 +378,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                         if (chunk.type === 'chunk' && chunk.isEntry) {
                             const cssFiles = new Set<string>();
                             const processedImports = new Set<string>();
-                            const collectCssFiles = (curChunk: RenderedChunk) => {
+                            const collectCssFiles = (curChunk: Rollup.RenderedChunk) => {
                                 if (!curChunk) {
                                     return;
                                 }
@@ -388,7 +388,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                                         continue;
                                     }
                                     processedImports.add(imp);
-                                    collectCssFiles(bundle[imp] as RenderedChunk);
+                                    collectCssFiles(bundle[imp] as Rollup.RenderedChunk);
                                 }
                             };
                             collectCssFiles(chunk);
