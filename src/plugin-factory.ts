@@ -388,21 +388,21 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             const processedImports = new Set<string>();
                             const collectCssFiles = (curChunk: Rollup.RenderedChunk) => {
                                 if (!curChunk) {
-                                return;
+                                    return;
                                 }
                                 curChunk.viteMetadata?.importedCss?.forEach(css => cssFiles.add(css));
                                 for (let imp of curChunk.imports || []) {
-                                if (processedImports.has(imp)) {
-                                    continue;
-                                }
-                                processedImports.add(imp);
+                                    if (processedImports.has(imp)) {
+                                        continue;
+                                    }
+                                    processedImports.add(imp);
                                     collectCssFiles(bundle[imp] as Rollup.RenderedChunk);
                                 }
                             };
                             collectCssFiles(chunk);
 
                             // Use the relative file name as key. It's used to match the entryPoint passed to `cssLifecycleFactory`.
-                            const cssMapKey = chunk.facadeModuleId!.substring(packageRootDir.length + 1)
+                            const cssMapKey = chunk.facadeModuleId!.substring(packageRootDir.length + 1);
                             cssMap[cssMapKey] = [];
                             for (let css of cssFiles.values()) {
                                 cssMap[cssMapKey].push(css);
@@ -413,7 +413,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     for (let x in bundle) {
                         const entry = bundle[x];
                         if (entry.type === 'chunk') {
-                        entry.code = entry.code
+                            entry.code = entry.code
                                 ?.replace('{vpss:PROJECT_ID}', projectId)
                                  .replace(/["`']\{vpss:CSS_MAP\}["`']/, stringifiedCssMap);
                         }
