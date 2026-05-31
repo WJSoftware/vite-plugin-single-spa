@@ -404,7 +404,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                         if (entry.type === 'chunk') {
                             entry.code = entry.code
                                 ?.replace('{vpss:PROJECT_ID}', projectId)
-                                .replace('"{vpss:CSS_MAP}"', stringifiedCssMap);
+                                 .replace(/["`']\{vpss:CSS_MAP\}["`']/, stringifiedCssMap);
                         }
                     }
                 }

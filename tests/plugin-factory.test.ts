@@ -515,7 +515,7 @@ describe('vite-plugin-single-spa', () => {
             // Assert.
             expect(caughtError).to.equal(false);
         });
-        const cssMapInsertionTest = async (chunks: TestRenderedChunk[], expectedMap: Record<string, string[]>) => {
+        const cssMapInsertionTest = async (chunks: TestRenderedChunk[], expectedMap: Record<string, string[]>, cssPlaceholderStr: string) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -541,7 +541,7 @@ describe('vite-plugin-single-spa', () => {
             const bundle: Record<string, any> = {
                 'a.js': {
                     type: 'chunk',
-                    code: '"{vpss:CSS_MAP}"'
+                    code: cssPlaceholderStr,
                 }
             };
             for (let ch of chunks) {
@@ -819,7 +819,14 @@ describe('vite-plugin-single-spa', () => {
             },
         ];
         for (let tc of cssMapInsertionTestData) {
-            it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}`, () => cssMapInsertionTest(tc.chunks, tc.expectedMap));
+            for (let cssPlaceholderStr of ["'{vpss:CSS_MAP}'", "`{vpss:CSS_MAP}`", '"{vpss:CSS_MAP}"']) {
+                it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}; CSS_MAP placeholder: ${cssPlaceholderStr}`,
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr));
+            }
+            for (let cssInvalidPlaceholderStr of ["<{vpss:CSS_MAP}>", "{vpss:CSS_MAP}"]) {
+                it.fails(`Should not insert the stringified CSS Map in chunks with an invalid placeholder: ${tc.text}; CSS_MAP placeholder: ${cssInvalidPlaceholderStr}`,
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssInvalidPlaceholderStr));
+            }
         }
         it("Should insert the package's name in the chunks that require it.", async () => {
             // Arrange.
