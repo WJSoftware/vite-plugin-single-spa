@@ -349,6 +349,8 @@ export const unmount = [cssLc.unmount, lc.unmount];
 
 The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
 is very important that the name passed to the factory coincides *exactly* with the file name (minus the extension).
+To prevent collisions when exporting multiple entryPoints with the same file name, you can set the plugin option
+`useRelativePathForLifecycleIdentifiers` to true, when you call `vitePluginSingleSpa` in the vite config.
 
 The object created by the factory (in the example, stored in the `cssLc` variable), **must** be used for every 
 exported/created `single-spa` lifecycle object that comes out of the same file (module).

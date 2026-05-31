@@ -100,6 +100,14 @@ declare module "vite-plugin-single-spa" {
          * `vpss(<project id>)<pattern>`.  The plug-in is smart enough to respect any folders in the pattern.
          */
         assetFileNames?: string;
+        /**
+         * When you call `cssLifecycleFactory`, the `entryPoint` you need to specify is the plain filename
+         * without its extension and path.
+         * To prevent collision when exporting multiple entryPoints with the same file name, set this property to true.
+         * So instead of calling `cssLifecycleFactory("myParcel")`, you call `cssLifecycleFactory("path/to/myParcel")`.
+         * @default false
+         */
+        useRelativePathForLifecycleIdentifiers?: boolean;
     } & DebuggingOptions;
 
     /**

@@ -77,6 +77,11 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
          * Control variable used just for logging chunks to a log file.  When true, the title has already been written.
          */
         let chunkInfoTitleWrittenToLog = false;
+        /**
+         * The package's root directory.
+         */
+        let packageRootDir: string;
+
         config.type = config.type ?? 'mife';
         if (isRootConfig(config)) {
             configFn = undefined;
@@ -365,6 +370,9 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     }
                 },
             },
+            configResolved(resolved) {
+                packageRootDir = resolved.root;
+            },
             async generateBundle(_options, bundle, _isWrite) {
                 if (viteEnv.command === 'build') {
                     await closeLog();
@@ -380,21 +388,27 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             const processedImports = new Set<string>();
                             const collectCssFiles = (curChunk: Rollup.RenderedChunk) => {
                                 if (!curChunk) {
-                                    return;
+                                return;
                                 }
                                 curChunk.viteMetadata?.importedCss?.forEach(css => cssFiles.add(css));
                                 for (let imp of curChunk.imports || []) {
-                                    if (processedImports.has(imp)) {
-                                        continue;
-                                    }
-                                    processedImports.add(imp);
+                                if (processedImports.has(imp)) {
+                                    continue;
+                                }
+                                processedImports.add(imp);
                                     collectCssFiles(bundle[imp] as Rollup.RenderedChunk);
                                 }
                             };
                             collectCssFiles(chunk);
-                            cssMap[chunk.name] = [];
+
+                            // By default, use the file name as entry point (cssMap key).
+                            // When specified in the config, use the full path.
+                            const cssMapKey = config.useRelativePathForLifecycleIdentifiers
+                                ? chunk.facadeModuleId!.substring(packageRootDir.length + 1)
+                                : chunk.name;
+                            cssMap[cssMapKey] = [];
                             for (let css of cssFiles.values()) {
-                                cssMap[chunk.name].push(css);
+                                cssMap[cssMapKey].push(css);
                             }
                         }
                     }
@@ -402,7 +416,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                     for (let x in bundle) {
                         const entry = bundle[x];
                         if (entry.type === 'chunk') {
-                            entry.code = entry.code
+                        entry.code = entry.code
                                 ?.replace('{vpss:PROJECT_ID}', projectId)
                                  .replace(/["`']\{vpss:CSS_MAP\}["`']/, stringifiedCssMap);
                         }

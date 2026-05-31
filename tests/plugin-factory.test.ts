@@ -3,11 +3,12 @@ import { expect, it, describe } from "vitest";
 import { pluginFactory } from '../src/plugin-factory.js';
 
 import path from 'path';
-import type { ConfigEnv, HtmlTagDescriptor, Rollup, UserConfig } from 'vite';
+import type { ConfigEnv, HtmlTagDescriptor, MinimalPluginContextWithoutEnvironment, Plugin, ResolvedConfig, Rollup, UserConfig } from 'vite';
 import type { ImoUiOption, ImoUiVariant, ImportMap, ImportMapsOption, SingleSpaMifePluginOptions, SingleSpaRootPluginOptions } from "vite-plugin-single-spa";
 import { cssHelpersModuleName, extensionModuleName } from '../src/ex-defs.js';
 
 type ConfigHandler = (this: void, config: UserConfig, env: ConfigEnv) => Promise<UserConfig>
+type ConfigResolvedHandler = (this: void, config: Partial<ResolvedConfig>) => void | Promise<void>;
 type ResolveIdHandler = (this: void, source: string) => string;
 type LoadHandler = (this: void, id: string) => Promise<string>;
 type RenderChunkHandler = { handler: (this: void, code: string, chunk: Rollup.RenderedChunk, options: Record<any, any>, meta: { chunks: Record<string, Rollup.RenderedChunk> }) => Promise<any> };
@@ -23,6 +24,7 @@ type TestRenderedChunk = {
     isEntry: boolean;
     imports: string[];
     viteMetadata?: TestChunkMetadata;
+    facadeModuleId: string;
 };
 
 const viteCommands: ConfigEnv['command'][] = [
@@ -515,7 +517,12 @@ describe('vite-plugin-single-spa', () => {
             // Assert.
             expect(caughtError).to.equal(false);
         });
-        const cssMapInsertionTest = async (chunks: TestRenderedChunk[], expectedMap: Record<string, string[]>, cssPlaceholderStr: string) => {
+        const cssMapInsertionTest = async (
+                chunks: TestRenderedChunk[],
+                expectedMap: Record<string, string[]>,
+                cssPlaceholderStr: string,
+                useRelativePathForLifecycleIdentifiers: boolean
+            ) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
                 if (fileName !== './package.json') {
@@ -523,7 +530,7 @@ describe('vite-plugin-single-spa', () => {
                 }
                 return Promise.resolve(JSON.stringify(pkgJson));
             };
-            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444, useRelativePathForLifecycleIdentifiers });
             const env: ConfigEnv = { command: 'build', mode: 'production' };
             const meta: { chunks: Record<string, Rollup.RenderedChunk> } = {
                 chunks: {}
@@ -532,6 +539,7 @@ describe('vite-plugin-single-spa', () => {
                 meta.chunks[ch.fileName] = ch as Rollup.RenderedChunk;
             }
             await (plugIn.config as ConfigHandler)({}, env);
+            await (plugIn.configResolved as ConfigResolvedHandler)({root: "/path/to/package"});
             for (let ch of chunks) {
                 await (plugIn.renderChunk as RenderChunkHandler).handler('', ch as Rollup.RenderedChunk, {}, meta);
             }
@@ -556,7 +564,19 @@ describe('vite-plugin-single-spa', () => {
 
             // Assert.
             const calculatedCssMap = JSON.parse(JSON.parse(bundle['a.js'].code));
-            expect(calculatedCssMap).to.deep.equal(expectedMap);
+            if (!useRelativePathForLifecycleIdentifiers) {
+                expect(calculatedCssMap).to.deep.equal(expectedMap);
+            } else {
+                // Add relative path and extension to expected entry points.
+                const expectedMapWithPathEntrypoints = Object.fromEntries(
+                    Object.entries(expectedMap).map(([entryPoint, fileNames]) => [
+                        `spa/${entryPoint}.js`,
+                        fileNames,
+                    ]),
+                );
+                expect(calculatedCssMap).to.deep.equal(expectedMapWithPathEntrypoints);
+
+            }
         };
         const buildSet = (items?: string[]) => new Set(items);
         const cssMapInsertionTestData: { chunks: TestRenderedChunk[]; text: string; expectedMap: Record<string, string[]>; }[] = [
@@ -565,6 +585,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: [],
                         viteMetadata: {
@@ -583,6 +604,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: ['b.js'],
                         viteMetadata: {
@@ -593,6 +615,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'b',
                         fileName: 'b.js',
+                        facadeModuleId: '/path/to/package/spa/b.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -611,6 +634,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: ['b.js', 'c.js'],
                         viteMetadata: {
@@ -621,6 +645,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'b',
                         fileName: 'b.js',
+                        facadeModuleId: '/path/to/package/spa/b.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -631,6 +656,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'c',
                         fileName: 'c.js',
+                        facadeModuleId: '/path/to/package/spa/c.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -649,6 +675,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: ['b.js', 'c.js'],
                         viteMetadata: {
@@ -659,6 +686,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'b',
                         fileName: 'b.js',
+                        facadeModuleId: '/path/to/package/spa/b.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -669,6 +697,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'c',
                         fileName: 'c.js',
+                        facadeModuleId: '/path/to/package/spa/c.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -687,6 +716,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: ['b.js', 'c.js'],
                         viteMetadata: {
@@ -696,6 +726,7 @@ describe('vite-plugin-single-spa', () => {
                     },
                     {
                         name: 'b',
+                        facadeModuleId: '/path/to/package/spa/b.js',
                         fileName: 'b.js',
                         isEntry: false,
                         imports: ['c.js'],
@@ -707,6 +738,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'c',
                         fileName: 'c.js',
+                        facadeModuleId: '/path/to/package/spa/c.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -725,6 +757,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: ['b.js', 'c.js'],
                         viteMetadata: {
@@ -735,6 +768,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'b',
                         fileName: 'b.js',
+                        facadeModuleId: '/path/to/package/spa/b.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -745,6 +779,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'c',
                         fileName: 'c.js',
+                        facadeModuleId: '/path/to/package/spa/c.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -755,6 +790,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'd',
                         fileName: 'd.js',
+                        facadeModuleId: '/path/to/package/spa/d.js',
                         isEntry: false,
                         imports: ['c.js'],
                         viteMetadata: {
@@ -773,6 +809,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'A',
                         fileName: 'A.js',
+                        facadeModuleId: '/path/to/package/spa/A.js',
                         isEntry: true,
                         imports: ['b.js', 'c.js'],
                         viteMetadata: {
@@ -783,6 +820,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'b',
                         fileName: 'b.js',
+                        facadeModuleId: '/path/to/package/spa/b.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -793,6 +831,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'c',
                         fileName: 'c.js',
+                        facadeModuleId: '/path/to/package/spa/c.js',
                         isEntry: false,
                         imports: [],
                         viteMetadata: {
@@ -803,6 +842,7 @@ describe('vite-plugin-single-spa', () => {
                     {
                         name: 'P',
                         fileName: 'P.js',
+                        facadeModuleId: '/path/to/package/spa/P.js',
                         isEntry: true,
                         imports: ['c.js'],
                         viteMetadata: {
@@ -820,12 +860,16 @@ describe('vite-plugin-single-spa', () => {
         ];
         for (let tc of cssMapInsertionTestData) {
             for (let cssPlaceholderStr of ["'{vpss:CSS_MAP}'", "`{vpss:CSS_MAP}`", '"{vpss:CSS_MAP}"']) {
+                // With filenames as entry points
                 it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}; CSS_MAP placeholder: ${cssPlaceholderStr}`,
-                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr));
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr, false));
+                // With paths as entry points
+                it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}; CSS_MAP placeholder: ${cssPlaceholderStr}`,
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr, true));
             }
             for (let cssInvalidPlaceholderStr of ["<{vpss:CSS_MAP}>", "{vpss:CSS_MAP}"]) {
                 it.fails(`Should not insert the stringified CSS Map in chunks with an invalid placeholder: ${tc.text}; CSS_MAP placeholder: ${cssInvalidPlaceholderStr}`,
-                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssInvalidPlaceholderStr));
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssInvalidPlaceholderStr, false));
             }
         }
         it("Should insert the package's name in the chunks that require it.", async () => {

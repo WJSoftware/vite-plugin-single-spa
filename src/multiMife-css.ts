@@ -19,7 +19,8 @@ export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFa
         ...options
     };
     setLogger(opts.logger);
-    const cssFileNames = cssMap[entryPoint] ?? [];
+    let resolvedEntryPoint = entryPoint.startsWith("./") ? entryPoint.substring(2) : entryPoint;
+    const cssFileNames = cssMap[resolvedEntryPoint] ?? [];
 
     return {
         bootstrap,

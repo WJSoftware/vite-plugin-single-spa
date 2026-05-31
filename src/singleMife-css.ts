@@ -101,7 +101,8 @@ export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFa
         ...options
     };
     setLogger(opts.logger);
-    const cssFiles = cssMap[entryPoint] ?? [];
+    let resolvedEntryPoint = entryPoint.startsWith("./") ? entryPoint.substring(2) : entryPoint;
+    const cssFiles = cssMap[resolvedEntryPoint] ?? [];
     return {
         bootstrap: bootstrap.bind(null, cssFiles),
         mount: mount.bind(null, cssFiles, opts),
