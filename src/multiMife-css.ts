@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { type CssLifecycleFactoryOptions } from "vite-plugin-single-spa/ex";
-import { createLinkElement, defaultFactoryOptions, getLogger, processCssPromises, setLogger, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
+import { createLinkElement, defaultFactoryOptions, getCssFilesForEntrypoint, getLogger, processCssPromises, setLogger, wireCssLinkElement, type LinkLoadResult } from "./css-helpers.js";
 
 let observer: MutationObserver | undefined;
 let autoLinkEls: HTMLLinkElement[] = [];
@@ -19,8 +19,8 @@ export function cssLifecycleFactory(entryPoint: string, options?: CssLifecycleFa
         ...options
     };
     setLogger(opts.logger);
-    let resolvedEntryPoint = entryPoint.startsWith("./") ? entryPoint.substring(2) : entryPoint;
-    const cssFileNames = cssMap[resolvedEntryPoint] ?? [];
+
+    const cssFileNames = getCssFilesForEntrypoint(entryPoint, cssMap);
 
     return {
         bootstrap,

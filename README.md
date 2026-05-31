@@ -339,18 +339,16 @@ const lc = singleSpaReact({
         return <div>Error: {err}</div>
     }
 });
-// IMPORTANT:  Because the file is named spa.tsx, the string 'spa'
-// must be passed to the call to cssLifecycleFactory.
-const cssLc = cssLifecycleFactory('spa', /* optional factory options */);
+// If only one entry point with the file name `spa.*` exists, you can also just pass "spa".
+const cssLc = cssLifecycleFactory('src/spa.tsx', /* optional factory options */);
 export const bootstrap = [cssLc.bootstrap, lc.bootstrap];
 export const mount = [cssLc.mount, lc.mount];
 export const unmount = [cssLc.unmount, lc.unmount];
 ```
 
-The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for, so it 
-is very important that the name passed to the factory coincides *exactly* with the file name (minus the extension).
-To prevent collisions when exporting multiple entryPoints with the same file name, you can set the plugin option
-`useRelativePathForLifecycleIdentifiers` to true, when you call `vitePluginSingleSpa` in the vite config.
+The lifecycle factory algorithm needs to know which entry point it should be creating the lifecycle object for.
+So you need to pass it the path to the entry point. If only one entry point with your file name exists, you can also
+use the file name without extension.
 
 The object created by the factory (in the example, stored in the `cssLc` variable), **must** be used for every 
 exported/created `single-spa` lifecycle object that comes out of the same file (module).

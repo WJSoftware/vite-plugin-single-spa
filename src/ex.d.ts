@@ -68,8 +68,9 @@ declare module 'vite-plugin-single-spa/ex' {
      * Note that there is no need to call this multiple times if the entry point is the same.  In other words:  The 
      * returned object can be used for the lifecycles of many `single-spa` micro-frontends/parcels as long as they are 
      * exported from the same entry point file.
-     * @param entryPoint Name of the entry point that dictates which CSS files the CSS lifecycle object will be 
-     * managing.
+     * @param entryPoint The path to the entry point file or just the entry point file name without extension.
+     * In case there is more than one entry point with the same file name, you must use the path.
+     * The entry point dictates which CSS files the CSS lifecycle object will be managing.
      * @param options CSS lifecycle factory options.
      * @returns The `single-spa` lifecycle object capable of managing the entry point's CSS files.
      */

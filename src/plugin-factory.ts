@@ -401,11 +401,8 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
                             };
                             collectCssFiles(chunk);
 
-                            // By default, use the file name as entry point (cssMap key).
-                            // When specified in the config, use the full path.
-                            const cssMapKey = config.useRelativePathForLifecycleIdentifiers
-                                ? chunk.facadeModuleId!.substring(packageRootDir.length + 1)
-                                : chunk.name;
+                            // Use the relative file name as key. It's used to match the entryPoint passed to `cssLifecycleFactory`.
+                            const cssMapKey = chunk.facadeModuleId!.substring(packageRootDir.length + 1)
                             cssMap[cssMapKey] = [];
                             for (let css of cssFiles.values()) {
                                 cssMap[cssMapKey].push(css);

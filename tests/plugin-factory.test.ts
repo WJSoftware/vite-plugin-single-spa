@@ -1,7 +1,7 @@
 /// <reference path="../src/vite-plugin-single-spa.d.ts"/>
 import { expect, it, describe } from "vitest";
 import { pluginFactory } from '../src/plugin-factory.js';
-
+import {getCssFilesForEntrypoint} from "../src/css-helpers.js"
 import path from 'path';
 import type { ConfigEnv, HtmlTagDescriptor, MinimalPluginContextWithoutEnvironment, Plugin, ResolvedConfig, Rollup, UserConfig } from 'vite';
 import type { ImoUiOption, ImoUiVariant, ImportMap, ImportMapsOption, SingleSpaMifePluginOptions, SingleSpaRootPluginOptions } from "vite-plugin-single-spa";
@@ -520,8 +520,7 @@ describe('vite-plugin-single-spa', () => {
         const cssMapInsertionTest = async (
                 chunks: TestRenderedChunk[],
                 expectedMap: Record<string, string[]>,
-                cssPlaceholderStr: string,
-                useRelativePathForLifecycleIdentifiers: boolean
+                cssPlaceholderStr: string
             ) => {
             // Arrange.
             const readFile = (fileName: string, _opts: any) => {
@@ -530,7 +529,7 @@ describe('vite-plugin-single-spa', () => {
                 }
                 return Promise.resolve(JSON.stringify(pkgJson));
             };
-            const plugIn = pluginFactory(readFile)({ serverPort: 4444, useRelativePathForLifecycleIdentifiers });
+            const plugIn = pluginFactory(readFile)({ serverPort: 4444 });
             const env: ConfigEnv = { command: 'build', mode: 'production' };
             const meta: { chunks: Record<string, Rollup.RenderedChunk> } = {
                 chunks: {}
@@ -564,19 +563,7 @@ describe('vite-plugin-single-spa', () => {
 
             // Assert.
             const calculatedCssMap = JSON.parse(JSON.parse(bundle['a.js'].code));
-            if (!useRelativePathForLifecycleIdentifiers) {
-                expect(calculatedCssMap).to.deep.equal(expectedMap);
-            } else {
-                // Add relative path and extension to expected entry points.
-                const expectedMapWithPathEntrypoints = Object.fromEntries(
-                    Object.entries(expectedMap).map(([entryPoint, fileNames]) => [
-                        `spa/${entryPoint}.js`,
-                        fileNames,
-                    ]),
-                );
-                expect(calculatedCssMap).to.deep.equal(expectedMapWithPathEntrypoints);
-
-            }
+            expect(calculatedCssMap).to.deep.equal(expectedMap);
         };
         const buildSet = (items?: string[]) => new Set(items);
         const cssMapInsertionTestData: { chunks: TestRenderedChunk[]; text: string; expectedMap: Record<string, string[]>; }[] = [
@@ -596,7 +583,7 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A[1]:  a',
                 expectedMap: {
-                    'A': ['A.css']
+                    'spa/A.js': ['A.css']
                 }
             },
             {
@@ -626,7 +613,7 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A, b[1]:  A->b',
                 expectedMap: {
-                    'A': ['b.css']
+                    'spa/A.js': ['b.css']
                 }
             },
             {
@@ -667,7 +654,7 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A, b[1], c[1]:  A->bc',
                 expectedMap: {
-                    'A': ['b.css', 'c.css']
+                    'spa/A.js': ['b.css', 'c.css']
                 }
             },
             {
@@ -708,7 +695,7 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A[1], b[1], c[1]:  A->bc',
                 expectedMap: {
-                    'A': ['A.css', 'b.css', 'c.css']
+                    'spa/A.js': ['A.css', 'b.css', 'c.css']
                 }
             },
             {
@@ -749,7 +736,7 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A[1], b[1], c[1]:  A->bc, b->c',
                 expectedMap: {
-                    'A': ['A.css', 'b.css', 'c.css']
+                    'spa/A.js': ['A.css', 'b.css', 'c.css']
                 }
             },
             {
@@ -801,7 +788,7 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A[1], b[1], c[1], d[1]:  A->bc',
                 expectedMap: {
-                    'A': ['A.css', 'b.css', 'c.css']
+                    'spa/A.js': ['A.css', 'b.css', 'c.css']
                 }
             },
             {
@@ -853,8 +840,8 @@ describe('vite-plugin-single-spa', () => {
                 ],
                 text: 'A[1], b[1], c[1], P[1]:  A->bc, P->c',
                 expectedMap: {
-                    'A': ['A.css', 'b.css', 'c.css'],
-                    'P': ['P.css', 'c.css']
+                    'spa/A.js': ['A.css', 'b.css', 'c.css'],
+                    'spa/P.js': ['P.css', 'c.css']
                 }
             },
         ];
@@ -862,14 +849,11 @@ describe('vite-plugin-single-spa', () => {
             for (let cssPlaceholderStr of ["'{vpss:CSS_MAP}'", "`{vpss:CSS_MAP}`", '"{vpss:CSS_MAP}"']) {
                 // With filenames as entry points
                 it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}; CSS_MAP placeholder: ${cssPlaceholderStr}`,
-                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr, false));
-                // With paths as entry points
-                it(`Should insert the stringified CSS Map in chunks that need it: ${tc.text}; CSS_MAP placeholder: ${cssPlaceholderStr}`,
-                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr, true));
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssPlaceholderStr));
             }
             for (let cssInvalidPlaceholderStr of ["<{vpss:CSS_MAP}>", "{vpss:CSS_MAP}"]) {
                 it.fails(`Should not insert the stringified CSS Map in chunks with an invalid placeholder: ${tc.text}; CSS_MAP placeholder: ${cssInvalidPlaceholderStr}`,
-                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssInvalidPlaceholderStr, false));
+                    () => cssMapInsertionTest(tc.chunks, tc.expectedMap, cssInvalidPlaceholderStr));
             }
         }
         it("Should insert the package's name in the chunks that require it.", async () => {
@@ -968,6 +952,17 @@ describe('vite-plugin-single-spa', () => {
         for (let tc of spaEntryPointsTestData) {
             it(`Should add the specified entry points as inputs for rollup build.  Inputs: ${tc.inputs}`, () => spaEntryPointsTest(tc.expects, tc.inputs));
         }
+        it("Should resolve the createCssLifecycles entryPoints by path and file name", () => {
+            const cssMap = {
+                "src/spa/parcel1.tsx": ["spa1-parcel1.css"],
+                "src/spa/parcel2.tsx": ["spa1-parcel2.css"],
+                "src/spa2/parcel1.tsx": ["spa2-parcel1.css"]
+            };
+            expect(getCssFilesForEntrypoint("./src/spa/parcel1.tsx", cssMap)).toEqual(["spa1-parcel1.css"]);
+            expect(getCssFilesForEntrypoint("src/spa2/parcel1.tsx", cssMap)).toEqual(["spa2-parcel1.css"]);
+            expect(getCssFilesForEntrypoint("parcel2", cssMap)).toEqual(["spa1-parcel2.css"]);
+            expect(() => getCssFilesForEntrypoint("parcel1", cssMap)).toThrow()
+        });
     });
     describe('Root Configuration', () => {
         const configTest = async (viteCmd: ConfigEnv['command']) => {

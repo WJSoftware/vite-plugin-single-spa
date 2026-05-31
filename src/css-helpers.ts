@@ -174,3 +174,43 @@ export async function processCssPromises(
         }
     }
 }
+
+/**
+ * Takes an entry point string passed to `cssLifecycleFactory` and matches it with the css map.
+ * The entry point string may be the filename without extension or the pathname relative to the project root.
+ *
+ * @param entryPointId The entry point file name, or path to it.
+ * @param cssMap The css map that as keys has the relative paths of all entry points and as values the associated css files..
+ */
+export function getCssFilesForEntrypoint(
+    entryPointId: string,
+    cssMap: Record<string, string[]>,
+) {
+    // Normalize the input by removing leading './'
+    let resolvedEntryPoint = entryPointId.startsWith("./")
+        ? entryPointId.substring(2)
+        : entryPointId;
+
+    const keys = Object.keys(cssMap).filter((entryPath) => {
+        const entryWithoutExt = entryPath
+            .replace(/^.*[\\/]/, "")
+            .replace(/\.[^.]+$/, "");
+
+        // Exact match (with or without extension)
+        if (
+            entryPath === resolvedEntryPoint ||
+            entryWithoutExt === resolvedEntryPoint
+        ) {
+            return true;
+        }
+
+        return false;
+    });
+
+    if (keys.length > 1) {
+        throw new Error(
+            `The given entry point ${entryPointId} matched more than one entry point file: [${keys}]. Use the path instead, to distinguish them.`,
+        );
+    }
+    return keys.length > 0 ? cssMap[keys[0]] : [];
+}
