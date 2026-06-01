@@ -299,7 +299,7 @@ export function pluginFactory(readFileFn?: (path: string, options: any) => Promi
             name: 'vite-plugin-single-spa',
             async config(cfg, opts) {
                 viteEnv = opts;
-                cssModuleFileName = viteEnv.command !== 'build' || (config as SingleSpaMifePluginOptions).cssStrategy === 'none' ?
+                cssModuleFileName = viteEnv.command !== 'build' || (config as SingleSpaMifePluginOptions).cssStrategy === 'none' || isRootConfig(config) ?
                     'no-css.js' :
                     `${(config as SingleSpaMifePluginOptions).cssStrategy ?? 'singleMife'}-css.js`;
                 if (lg?.incomingConfig) {
