@@ -40,7 +40,7 @@
     "vite": "^8.0.0"
   },
   "devDependencies": {
-    "@types/node": "^24.1.0",
+    "@types/node": "^26.0.0",
     "publint": "^0.3.18",
     "single-spa": "^6.0.3",
     "typescript": "^5.9.3",
