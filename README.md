@@ -1,26 +1,33 @@
 # vite-plugin-single-spa
 
-As you may or may not know, `single-spa` creator [Joel/Jolyn Denning passed away in 2025](https://github.com/single-spa/single-spa/issues/1361#issuecomment-3991093643) ([obituary](https://www.broomheadfuneralhome.com/obituary/joel-denning)).  This, *in my very own personal opinion*, also means the death of `single-spa`.
-
-It's been a fun ride, and it is now time to move on.
+> ⚠️ **DEPRECATION NOTICE**
+> 
+> This package is now deprecated.  Migrate your projects to [CollageJS](https://collagejs.dev) for the next evolution of this plug-in, seek another micro-frondends solution, or stay on `single-spa` at your own discretion.
 
 ![CollageJS](https://raw.githubusercontent.com/collagejs/core/HEAD/src/logos/collagejs-512.svg)
 
-## You're Invited to CollageJS!
+## CollageJS:  An Evolution to single-spa and This Plug-In
 
-I would like to let you all know that I have created an alternative, inspired by the concept of `single-spa` parcels.  I have named it *CollageJS*.
+[Website and documentation](https://collagejs.dev)
 
-This is the main repository:  [CollageJS Repository][https://github.com/collagejs/collagejs]
+[CollageJS' Core Repository](https://github.com/collagejs/collagejs)
 
-I strongly believe that `single-spa` users will feel it very familiar, especially the ones using `vite-plugin-single-spa` (this plug-in).  Its documentation site is not yet up and running but should go live soon.
+I created *CollageJS* as an evolution of the excellent `single-spa` routing library for micro-frontends.  *CollageJS* drops the routing capabilities and focuses only on mounting, unmounting and updating micro-frontends.  Routing can be accomplished with one of the *many* routers in existence, both framework-agnostic and framework-specific.
 
-Head over to *CollageJS* and give it a try.  While more focused and smaller, it does pack very interesting new features, such as:
+## Migration
 
-1. Auto-externalization of anything in the import map while running Vite's dev server (`npm run dev`)
-2. Static imports from micro-frontends (named *CollageJS* pieces) is allowed; no more dynamic `import()` everywhere!
-3. Ability to mount *CollageJS* pieces in shadow DOM
-4. Ability to mount multiple copies of the same *CollageJS* piece
-5. All written in TypeScript from day 1
-6. A modern version of `import-map-overrides` named `@collagejs/imo`
-7. The ability to package *CollageJS* pieces in NPM packages (`@collagejs/imo`'s user interface is a *CollageJS* piece)
-8. More to come, hopefully including SSR support
+Since *CollageJS* doesn't provide routing, the "difficult" part is substituting routing with a router of your own preference.  The migration guide (URL below) proposes an alternative and even a template project for quick-starting migrations of root projects.
+
+Once routing is sorted, migrating dozens of `single-spa` micro-frontend/parcel projects powered by `vite-plugin-single-spa` to *CollageJS* can be done in one day.
+
+[Migration Guide from single-spa](https://collagejs.dev/guides/migration-from-single-spa)
+
+## Advantages of Migrating
+
+- Vite v8 plug-ins
+- Auto-externalization of import map entries, even in micro-frontend projects while in DEV mode (`npm run dev`)
+- New import map-overriding package with a modern user interface
+- Adapters for more modern frameworks and framework versions
+- Ability to mount in shadow DOM
+- Better CSS mounting logic that is no longer dependant on Vite's `base` option
+- Etc.
